@@ -1,0 +1,43 @@
+# ignore the following data types
+*.wav
+*.WAV
+*.Wav
+*.npy
+*.pt
+*.c
+*.so
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.pdf
+*.gz
+*.ipe
+*.zip
+*.nav
+*.out
+*.snm
+*.toc
+*.sty
+*.auxlock
+*.bcf
+*.vrb
+*.snm
+*.xml
+*.json
+*.eps
+*.png
+*.md5
+*.svg
+
+# ignore data directory
+data/*
+
+# ignore OS generated files
+.DS_Store
+.ipynb_checkpoints/
+
+# ignore cython directory
+python/__pycache__/*

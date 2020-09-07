@@ -1,0 +1,23 @@
+# IDE-related
+.vscode
+
+# Python-related compilation
+__pycache__
+
+# pytest-related
+*.pytest_cache
+
+# Package egg-info
+*.egg-info
+
+# Package setup
+setup.py
+
+# data
+data/complete/
+
+# Unused files
+*math_func.py
+unfinished_func.py
+tests/processing/*
+visualization*

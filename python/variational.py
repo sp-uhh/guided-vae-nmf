@@ -5,12 +5,11 @@ from torch import nn
 import torch.nn.functional as F
 
 from utils import log_sum_exp, enumerate_discrete
-from .distributions import log_standard_categorical
+from distributions import log_standard_categorical
 
 class ImportanceWeightedSampler(object):
     """
-    Importance weighted sampler [Burda 2015] to
-    be used in conjunction with SVI.
+    Importance weighted sampler [Burda 2015] to be used in conjunction with SVI.
     """
     def __init__(self, mc=1, iw=1):
         """
@@ -32,8 +31,7 @@ class ImportanceWeightedSampler(object):
 
 class DeterministicWarmup(object):
     """
-    Linear deterministic warm-up as described in
-    [Sønderby 2016].
+    Linear deterministic warm-up as described in [Sønderby 2016].
     """
     def __init__(self, n=100, t_max=1):
         self.t = 0
@@ -57,8 +55,8 @@ class SVI(nn.Module):
     base_sampler = ImportanceWeightedSampler(mc=1, iw=1)
     def __init__(self, model, likelihood=F.binary_cross_entropy, beta=repeat(1), sampler=base_sampler):
         """
-        Initialises a new SVI optimizer for semi-
-        supervised learning.
+        Initialises a new SVI optimizer for semi-supervised learning.
+
         :param model: semi-supervised model to evaluate
         :param likelihood: p(x|y,z) for example BCE or MSE
         :param sampler: sampler for x and y, e.g. for Monte Carlo

@@ -2,18 +2,15 @@ import torch
 from torch import nn
 from torch.nn import init
 import torch.nn.functional as F
-from torch.autograd import Variable
 
 
 class Stochastic(nn.Module):
     """
-    Base stochastic layer that uses the
-    reparametrization trick [Kingma 2013]
-    to draw a sample from a distribution
-    parametrised by mu and log_var.
+    Base stochastic layer that uses the reparametrization trick [Kingma 2013]
+    to draw a sample from a distribution parametrised by mu and log_var.
     """
     def reparametrize(self, mu, log_var):
-        epsilon = Variable(torch.randn(mu.size()), requires_grad=False)
+        epsilon = torch.randn(mu.size(), requires_grad=False)
 
         if mu.is_cuda:
             epsilon = epsilon.cuda()
@@ -29,8 +26,7 @@ class Stochastic(nn.Module):
 
 class GaussianSample(Stochastic):
     """
-    Layer that represents a sample from a
-    Gaussian distribution.
+    Layer that represents a sample from a Gaussian distribution.
     """
     def __init__(self, in_features, out_features):
         super(GaussianSample, self).__init__()
@@ -50,8 +46,7 @@ class GaussianSample(Stochastic):
 class Classifier(nn.Module):
     def __init__(self, dims):
         """
-        Single hidden layer classifier
-        with softmax output.
+        Single hidden layer classifier with softmax output.
         """
         super(Classifier, self).__init__()
         [x_dim, h_dim, y_dim] = dims
@@ -69,10 +64,8 @@ class Encoder(nn.Module):
         """
         Inference network
 
-        Attempts to infer the probability distribution
-        p(z|x) from the data by fitting a variational
-        distribution q_φ(z|x). Returns the two parameters
-        of the distribution (µ, log σ²).
+        Attempts to infer the probability distribution p(z|x) from the data by fitting a variational
+        distribution q_φ(z|x). Returns the two parameters of the distribution (µ, log σ²).
 
         :param dims: dimensions of the networks
            given by the number of neurons on the form
@@ -98,9 +91,8 @@ class Decoder(nn.Module):
         """
         Generative network
 
-        Generates samples from the original distribution
-        p(x) by transforming a latent representation, e.g.
-        by finding p_θ(x|z).
+        Generates samples from the original distribution p(x) by transforming a latent 
+        representation, e.g. by finding p_θ(x|z).
 
         :param dims: dimensions of the networks
             given by the number of neurons on the form
@@ -127,10 +119,8 @@ class Decoder(nn.Module):
 class VariationalAutoencoder(nn.Module):
     def __init__(self, dims):
         """
-        Variational Autoencoder [Kingma 2013] model
-        consisting of an encoder/decoder pair for which
-        a variational distribution is fitted to the
-        encoder. Also known as the M1 model in [Kingma 2014].
+        Variational Autoencoder [Kingma 2013] model consisting of an encoder/decoder pair for which
+        a variational distribution is fitted to the encoder. Also known as the M1 model in [Kingma 2014].
 
         :param dims: x, z and hidden dimensions of the networks
         """
@@ -146,14 +136,13 @@ class VariationalAutoencoder(nn.Module):
 
         for m in self.modules():
             if isinstance(m, nn.Linear):
-                init.xavier_normal(m.weight.data)
+                init.xavier_normal_(m.weight.data)
                 if m.bias is not None:
                     m.bias.data.zero_()
 
     def _kld(self, z, q_param, p_param=None):
         """
-        Computes the KL-divergence of
-        some element z.
+        Computes the KL-divergence of some element z.
 
         KL(q||p) = -∫ q(z) log [ p(z) / q(z) ]
                  = -E[log p(z) - log q(z)]
@@ -187,9 +176,8 @@ class VariationalAutoencoder(nn.Module):
 
     def forward(self, x, y=None):
         """
-        Runs a data point through the model in order
-        to provide its reconstruction and q distribution
-        parameters.
+        Runs a data point through the model in order to provide its reconstruction 
+        and q distribution parameters.
 
         :param x: input data
         :return: reconstructed input
@@ -204,8 +192,8 @@ class VariationalAutoencoder(nn.Module):
 
     def sample(self, z):
         """
-        Given z ~ N(0, I) generates a sample from
-        the learned distribution based on p_θ(x|z).
+        Given z ~ N(0, I) generates a sample from the learned distribution based on p_θ(x|z).
+
         :param z: (torch.autograd.Variable) Random normal variable
         :return: (torch.autograd.Variable) generated sample
         """
@@ -235,7 +223,7 @@ class DeepGenerativeModel(VariationalAutoencoder):
 
         for m in self.modules():
             if isinstance(m, nn.Linear):
-                init.xavier_normal(m.weight.data)
+                init.xavier_normal_(m.weight.data)
                 if m.bias is not None:
                     m.bias.data.zero_()
 

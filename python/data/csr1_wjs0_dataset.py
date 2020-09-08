@@ -34,22 +34,26 @@ def speech_list(input_data_dir,
         Audio_files (list)
     """
     
-    input_data_dir += 'CSR-1-WSJ-0/WAV/wsj0/'
+    data_dir = input_data_dir + 'CSR-1-WSJ-0/WAV/wsj0/'
 
     ### Training data
     if dataset_type == 'train':
-        input_data_dir += 'si_tr_s/'
+        data_dir += 'si_tr_s/'
 
     ### Validation data
     if dataset_type == 'validation':
-        input_data_dir += 'si_dt_05/'
+        data_dir += 'si_dt_05/'
 
     ### Test data
     if dataset_type == 'test':
-        input_data_dir += 'si_et_05/'
+        data_dir += 'si_et_05/'
 
     # List of files
-    file_paths = glob(input_data_dir + '**/*.wav',recursive=True)
+    file_paths = glob(data_dir + '**/*.wav',recursive=True)
+
+    # Remove input_data_dir from file_paths
+    file_paths = [os.path.relpath(path, input_data_dir) for path in file_paths]
+
     return file_paths
 
 def write_dataset(data,
@@ -67,17 +71,17 @@ def write_dataset(data,
     """
     ### Training data
     if dataset_type == 'train':
-        output_data_dir += 'si_tr_s'
+        data_dir = 'si_tr_s'
 
     ### Validation data
     if dataset_type == 'validation':
-        output_data_dir += 'si_dt_05'
+        data_dir = 'si_dt_05'
 
     ### Test data
     if dataset_type == 'test':
-        output_data_dir += 'si_et_05'
+        data_dir = 'si_et_05'
 
-    output_data_path = output_data_dir + '_' + suffix + '.p'
+    output_data_path = output_data_dir + data_dir + '_' + suffix + '.p'
 
     with open(output_data_path, 'wb') as file:
         pickle.dump(data, file, protocol=4)

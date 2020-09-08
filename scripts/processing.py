@@ -4,6 +4,7 @@ from python.processing.target import clean_speech_IBM
 import soundfile as sf
 import numpy as np
 from numpy.testing import assert_array_equal
+from python.data.utils import open_file
 
 
 # Parameters
@@ -41,7 +42,7 @@ def main():
 
     for path in file_paths:
         #paths.append(path)
-        x, fs_x = sf.read(path, samplerate=None)
+        x, fs_x = sf.read(input_data_dir + path, samplerate=None)
         x = x/np.max(np.abs(x))
         if fs != fs_x:
             raise ValueError('Unexpected sampling rate')
@@ -88,9 +89,9 @@ def main():
     # Assert stored data is same
     assert_array_equal(spectrograms, pickle_spectrograms)
     assert_array_equal(labels, pickle_labels)
-    
-    # # binary mask
-    # IBM = clean_speech_IBM(speech_tf,quantile_fraction,quantile_weight)
 
+    #Open output directory
+    open_file(output_data_dir)
+    
 if __name__ == '__main__':
     main()

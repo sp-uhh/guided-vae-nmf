@@ -28,7 +28,7 @@ def test_write_read_frames():
 
     for path in file_paths:
 
-        x, fs_x = sf.read(path, samplerate=None)
+        x, fs_x = sf.read(input_data_dir + path, samplerate=None)
         x = x/np.max(np.abs(x))
         if fs != fs_x:
             raise ValueError('Unexpected sampling rate')
@@ -83,7 +83,7 @@ def test_write_read_labels():
 
     for path in file_paths:
 
-        x, fs_x = sf.read(path, samplerate=None)
+        x, fs_x = sf.read(input_data_dir + path, samplerate=None)
         x = x/np.max(np.abs(x))
         if fs != fs_x:
             raise ValueError('Unexpected sampling rate')

@@ -19,7 +19,6 @@ data/complete/
 # Unused files
 *math_func.py
 unfinished_func.py
-tests/processing/*
 
 # ignore the following data types
 *.npy

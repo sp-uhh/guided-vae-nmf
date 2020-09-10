@@ -24,6 +24,7 @@ def test_write_read_frames(dataset_type):
     wlen_sec = 64e-3 # window length in seconds
     hop_percent = 0.25  # hop size as a percentage of the window length
     win = 'hann' # type of window
+    dtype = 'complex64'
 
     # Create file list
     file_paths = speech_list(input_data_dir=input_data_dir,
@@ -43,9 +44,10 @@ def test_write_read_frames(dataset_type):
                     fs=fs,
                     wlen_sec=wlen_sec,
                     win=win,
-                    hop_percent=hop_percent)
+                    hop_percent=hop_percent,
+                    dtype=dtype)
 
-        spectrograms.append(np.power(np.abs(x_tf), 2))
+        spectrograms.append(np.power(abs(x_tf), 2))
 
     spectrograms = np.concatenate(spectrograms, axis=1)
 
@@ -81,6 +83,7 @@ def test_write_read_labels(dataset_type):
     wlen_sec = 64e-3 # window length in seconds
     hop_percent = 0.25  # hop size as a percentage of the window length
     win = 'hann' # type of window
+    dtype = 'complex64'
 
     ## Ideal binary mask
     quantile_fraction = 0.98
@@ -104,7 +107,8 @@ def test_write_read_labels(dataset_type):
                     fs=fs,
                     wlen_sec=wlen_sec,
                     win=win,
-                    hop_percent=hop_percent)
+                    hop_percent=hop_percent,
+                    dtype=dtype)
 
          # binary mask
         x_ibm = clean_speech_IBM(x_tf,

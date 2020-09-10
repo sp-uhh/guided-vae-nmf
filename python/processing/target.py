@@ -13,12 +13,15 @@ def clean_speech_IBM(observations,
     :param quantile_weight: Governs the influence of the mask
     :return: quantile_mask
     """
-    power = (observations * observations.conj())
+    power = abs(observations * observations.conj())
     sorted_power = np.sort(power, axis=None)[::-1]
     lorenz_function = np.cumsum(sorted_power) / np.sum(sorted_power)
     threshold = np.min(sorted_power[lorenz_function < quantile_fraction])
     mask = power > threshold
     mask = 0.5 + quantile_weight * (mask - 0.5)
+    mask = np.round(mask) # to have either 0 or 1 values
+    if mask.dtype != 'float32':
+        mask = np.float32(mask) # convert to float32
     return mask
 
 def noise_aware_IRM(*input, feature_dim=-2, source_dim=-1,

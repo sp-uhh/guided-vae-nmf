@@ -13,7 +13,6 @@ import soundfile as sf
 import pickle
 
 #TODO: create clean speech dataset, noise-aware dataset, hybrid dataset --> store in process dataset with metadata (SNR, etc.)
-#TODO: the mask depend on STFT analysis, so can't preprocess in advance
 
 """
 Create datasets from input_data_dir

@@ -4,8 +4,8 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
-from utils import log_sum_exp, enumerate_discrete
-from distributions import log_standard_categorical
+from python.models.utils import log_sum_exp, enumerate_discrete
+from python.models.distributions import log_standard_categorical
 
 class ImportanceWeightedSampler(object):
     """

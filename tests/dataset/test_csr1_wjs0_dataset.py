@@ -1,4 +1,4 @@
-from python.data.csr1_wjs0_dataset import speech_list, write_dataset, read_dataset
+from python.dataset.csr1_wjs0_dataset import speech_list, write_dataset, read_dataset
 from python.processing.stft import stft
 from python.processing.target import clean_speech_IBM
 import numpy as np
@@ -6,13 +6,18 @@ import soundfile as sf
 from numpy.testing import assert_array_equal
 import pytest
 
-
-def test_write_read_frames():
+@pytest.mark.parametrize('dataset_type',
+[
+    ('train'),
+    ('validation'),
+    ('test')
+]
+)
+def test_write_read_frames(dataset_type):
     # Parameters
     ## Dataset
     input_data_dir = 'data/subset/raw/'
     output_data_dir = 'data/subset/processed/'
-    dataset_type = 'test'
     fs = int(16e3) # Sampling rate
 
     ## STFT
@@ -58,12 +63,18 @@ def test_write_read_frames():
     # Assert stored data is same as spectrograms
     assert_array_equal(spectrograms, pickle_spectrograms)
 
-def test_write_read_labels():
+@pytest.mark.parametrize('dataset_type',
+[
+    ('train'),
+    ('validation'),
+    ('test')
+]
+)
+def test_write_read_labels(dataset_type):
     # Parameters
     ## Dataset
     input_data_dir = 'data/subset/raw/'
     output_data_dir = 'data/subset/processed/'
-    dataset_type = 'test'
     fs = int(16e3) # Sampling rate
 
     ## STFT

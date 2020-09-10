@@ -1,4 +1,4 @@
-from python.data.csr1_wjs0_dataset import speech_list, write_dataset, read_dataset
+from python.dataset.csr1_wjs0_dataset import speech_list, write_dataset, read_dataset
 from python.processing.stft import stft
 from python.processing.target import clean_speech_IBM
 import soundfile as sf
@@ -22,13 +22,6 @@ win = 'hann' # type of window
 ## Ideal binary mask
 quantile_fraction = 0.98
 quantile_weight = 0.999
-
-## Plot spectrograms
-vmin = -60 # in dB
-vmax = 10 # in dB
-nb_xticks = 4 # in seconds
-fontsize = 30
-
 #eps = np.finfo(float).eps # machine epsilon
 
 def main():

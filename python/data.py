@@ -13,6 +13,7 @@ hop_percent = 0.25
 hop = np.int(hop_percent*wlen) 
 nfft = wlen
 
+#TODO: include STFT analysis in dataloader, in order to avoid preprocess in advance
 
 class Spectogram(Dataset):
     def __init__(self, data):
@@ -47,12 +48,13 @@ class SpectrogramFrames(Dataset):
 
 
 class SpectrogramLabeledFrames(Dataset):
-    def __init__(self, data):
+    def __init__(self, data, labels):
         self.data = data
+        self.labels = labels
         self.index = np.arange(len(self.data))
 
     def __getitem__(self, i):
-        return self.data[:,i], self.label[:,i]
+        return self.data[:,i], self.labels[:,i]
 
     def __len__(self):
         return len(self.data[0,:])

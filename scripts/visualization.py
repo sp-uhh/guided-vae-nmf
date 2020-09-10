@@ -9,7 +9,7 @@ from python.visualization import display_waveplot, display_spectrogram
 import numpy as np
 import matplotlib.gridspec as grd
 import os
-from python.data.utils import open_file
+from python.utils import open_file
 
 # Parameters
 ## Dataset

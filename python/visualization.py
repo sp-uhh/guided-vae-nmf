@@ -64,23 +64,24 @@ def display_spectrogram(complex_spec,
         amplitude_spec = librosa.core.amplitude_to_db(amplitude_spec)
 
     # librosa.display.specshow params
+    freq_bins, frames = amplitude_spec.shape
     sr=int(fs/1e3) # to make yticks concise
     nfft = int(wlen_sec * fs) # STFT window length in samples
     hop_length = int(hop_percent * nfft) # hop size in samples
     hop_sec = hop_length / fs # hop size in seconds
-    time_sec = amplitude_spec.shape[0] * hop_sec # time length of the signal in seconds
+    time_sec = frames * hop_sec # time length of the signal in seconds
 
     # plot params
     plt.rcParams.update({'font.size': fontsize})
 
-    img = librosa.display.specshow(amplitude_spec.T,
+    img = librosa.display.specshow(amplitude_spec,
                             x_axis='time',
                             y_axis='linear',
                             vmin=vmin,
                             vmax=vmax,
                             sr=sr,
                             hop_length=hop_length,
-                            x_coords=np.arange(0, time_sec + hop_sec,(time_sec + hop_sec) / amplitude_spec.shape[0]),
+                            x_coords=np.arange(0, time_sec + hop_sec,(time_sec + hop_sec) / frames),
                             cmap=cmap)
 
     plt.ylabel('Frequency (kHz)', fontsize=fontsize+10) #, fontweight="bold")

@@ -4,7 +4,22 @@ VAD
 
 import numpy as np
 
-
+def clean_speech_IBM(observations,
+                     quantile_fraction=0.98,
+                     quantile_weight=0.999):
+    """ Calculate softened mask according to lorenz function criterion.
+    :param observation: STFT of the the observed signal
+    :param quantile_fraction: Fraction of observations which are rated down
+    :param quantile_weight: Governs the influence of the mask
+    :return: quantile_mask
+    """
+    power = (observations * observations.conj())
+    sorted_power = np.sort(power, axis=None)[::-1]
+    lorenz_function = np.cumsum(sorted_power) / np.sum(sorted_power)
+    threshold = np.min(sorted_power[lorenz_function < quantile_fraction])
+    mask = power > threshold
+    mask = 0.5 + quantile_weight * (mask - 0.5)
+    return mask
 
 def noise_aware_IRM(*input, feature_dim=-2, source_dim=-1,
                            tuple_output=False):
@@ -72,22 +87,7 @@ def noise_aware_IRM(*input, feature_dim=-2, source_dim=-1,
 
         return output
 
-def clean_speech_IBM(observations,
-                     quantile_fraction=0.98,
-                     quantile_weight=0.999):
-    """ Calculate softened mask according to lorenz function criterion.
-    :param observation: STFT of the the observed signal
-    :param quantile_fraction: Fraction of observations which are rated down
-    :param quantile_weight: Governs the influence of the mask
-    :return: quantile_mask
-    """
-    power = (observations * observations.conj())
-    sorted_power = np.sort(power, axis=None)[::-1]
-    lorenz_function = np.cumsum(sorted_power) / np.sum(sorted_power)
-    threshold = np.min(sorted_power[lorenz_function < quantile_fraction])
-    mask = power > threshold
-    mask = 0.5 + quantile_weight * (mask - 0.5)
-    return mask
+
 
 
 def _voiced_unvoiced_split_characteristic(number_of_frequency_bins):

@@ -16,13 +16,11 @@ TF representation
 def stft(x,
          fs=16e3,
          wlen_sec=50e-3,
-         window='hann',
+         win='hann',
          hop_percent=0.25,
          center=True,
          pad_mode='reflect',
-         dtype='complex64',
-         *args,
-         **kwargs):
+         dtype='complex64'):
     """
     Arguments
         x: input (as time series)
@@ -35,6 +33,8 @@ def stft(x,
         f, t, Sxx (default: complex64 i.e. float32 for amplitude and phase)
         WARNING: null frequency is included in the spectrogram bins
     """
+    if wlen_sec * fs != int(wlen_sec * fs):
+        raise ValueError("wlen_sample of STFT is not an integer.")
     nfft = int(wlen_sec * fs) # STFT window length in samples
     hopsamp = int(hop_percent * nfft) # hop size in samples
 
@@ -54,56 +54,47 @@ def stft(x,
                             n_fft=nfft,
                             hop_length=hopsamp,
                             win_length=None,
-                            window=window,
+                            window=win,
                             center=center,
                             pad_mode=pad_mode,
                             dtype=dtype)
-    return Sxx.T
+    return Sxx
 
 
 def istft(Sxx,
           fs=16000,
-          framesz=32 / 1000.,
-          window='hann',
-          hop=0.25,
+          wlen_sec=50e-3,
+          win='hann',
+          hop_percent=0.25,
           center=True,
           dtype='float32',
           max_len=None):
     """
     Inverse STFT
+
     Sxx: input (as spectrogram)
     fs: frequence sampling (in Hz)
     framesz: framesize (in seconds)
     hop: 1 - overlap (in [0,1])
+    max_len: shorten output time signal
+             in case output time signal is longer than input time signal
 
     return
     t, x (default: float64)
     """
+    if wlen_sec * fs != int(wlen_sec * fs):
+        raise ValueError("wlen_sample of iSTFT is not an integer.")
+    nfft = int(wlen_sec * fs) # STFT window length in samples
+    hopsamp = int(hop_percent * nfft) # hop size in samples
 
-    Thop = hop * framesz
-    # Tnoverlap = (1. - hop) * framesz
-
-    hopsamp = int(Thop * fs)
-    framesamp = int(framesz * fs)
-    # noverlapsamp = int(Tnoverlap * fs)
-
-    x = librosa.core.istft(stft_matrix=Sxx.T,
+    x = librosa.core.istft(stft_matrix=Sxx,
                            hop_length=hopsamp,
-                           win_length=framesamp,
-                           window='hann',
-                           center=True,
+                           win_length=nfft,
+                           window=win,
+                           center=center,
                            dtype=dtype,
-                           length=None)
-    # t, x = signal.istft(Zxx=Sxx,
-    #                    fs=fs,
-    #                    window='hann',
-    #                    nperseg=framesamp,
-    #                    noverlap=noverlapsamp,
-    #                    nfft=nfft*2,
-    #                    input_onesided=input_onesided,
-    #                    boundary=boundary,
-    #                    time_axis=0,
-    #                    freq_axis=1)
+                           length=max_len)
+
     if max_len:
         x = x[:int(max_len*fs)]
     return x

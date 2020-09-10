@@ -47,7 +47,7 @@ def test_write_read_frames(dataset_type):
 
         spectrograms.append(np.power(np.abs(x_tf), 2))
 
-    spectrograms = np.concatenate(spectrograms, axis=0)
+    spectrograms = np.concatenate(spectrograms, axis=1)
 
     # write spectrograms
     write_dataset(spectrograms,
@@ -113,7 +113,7 @@ def test_write_read_labels(dataset_type):
 
         labels.append(x_ibm)
 
-    labels = np.concatenate(labels, axis=0)
+    labels = np.concatenate(labels, axis=1)
 
     # write spectrograms
     write_dataset(labels,

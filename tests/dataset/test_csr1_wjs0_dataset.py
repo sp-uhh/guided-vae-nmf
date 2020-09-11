@@ -5,6 +5,7 @@ import numpy as np
 import soundfile as sf
 from numpy.testing import assert_array_equal
 import pytest
+import os
 
 @pytest.mark.parametrize('dataset_type',
 [
@@ -35,7 +36,19 @@ def test_write_read_frames(dataset_type):
     for path in file_paths:
 
         x, fs_x = sf.read(input_data_dir + path, samplerate=None)
-        x = x/np.max(np.abs(x))
+
+        # Cut burst at begining of file
+        x[:int(0.1*fs)] = x[int(0.1*fs):int(0.2*fs)]
+
+        # Normalize audio
+        x = x/(np.max(np.abs(x)))
+        #x = x/(np.max(np.abs(x)) + 2)
+        #x = x/np.linalg.norm(x)
+
+        if not os.path.exists(os.path.dirname(output_data_dir + path)):
+            os.makedirs(os.path.dirname(output_data_dir + path))
+        sf.write(output_data_dir + path, x, fs_x)
+        
         if fs != fs_x:
             raise ValueError('Unexpected sampling rate')
 
@@ -50,6 +63,7 @@ def test_write_read_frames(dataset_type):
         spectrograms.append(np.power(abs(x_tf), 2))
 
     spectrograms = np.concatenate(spectrograms, axis=1)
+    #spectrograms = spectrograms[1]
 
     # write spectrograms
     write_dataset(spectrograms,
@@ -98,7 +112,15 @@ def test_write_read_labels(dataset_type):
     for path in file_paths:
 
         x, fs_x = sf.read(input_data_dir + path, samplerate=None)
-        x = x/np.max(np.abs(x))
+
+        # Cut burst at begining of file
+        x[:int(0.1*fs)] = x[int(0.1*fs):int(0.2*fs)]
+
+        # Normalize audio
+        x = x/(np.max(np.abs(x)))
+        #x = x/(np.max(np.abs(x)) + 2)
+        #x = x/np.linalg.norm(x)
+
         if fs != fs_x:
             raise ValueError('Unexpected sampling rate')
 
@@ -118,6 +140,7 @@ def test_write_read_labels(dataset_type):
         labels.append(x_ibm)
 
     labels = np.concatenate(labels, axis=1)
+    #labels = labels[1]
 
     # write spectrograms
     write_dataset(labels,

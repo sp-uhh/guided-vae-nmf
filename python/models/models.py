@@ -3,6 +3,8 @@ from torch import nn
 from torch.nn import init
 import torch.nn.functional as F
 
+from python.models.distributions import log_gaussian, log_standard_gaussian
+
 
 class Stochastic(nn.Module):
     """
@@ -159,9 +161,11 @@ class VariationalAutoencoder(nn.Module):
             qz = log_gaussian(z, mu, log_var) - sum(log_det_z)
             z = f_z
         else:
+            #TODO: bug here
             qz = log_gaussian(z, mu, log_var)
 
         if p_param is None:
+            #TODO: bug here
             pz = log_standard_gaussian(z)
         else:
             (mu, log_var) = p_param

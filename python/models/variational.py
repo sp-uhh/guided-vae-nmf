@@ -80,6 +80,7 @@ class SVI(nn.Module):
             xs = xs.repeat(self.model.y_dim, 1)
 
         # Increase sampling dimension
+        #TODO: maybe log_var is high because of resampling?
         xs = self.sampler.resample(xs)
         ys = self.sampler.resample(ys)
 

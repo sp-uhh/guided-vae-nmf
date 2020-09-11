@@ -49,7 +49,8 @@ def main():
     train_dataset = SpectrogramLabeledFrames(train_data, train_labels)
     valid_dataset = SpectrogramLabeledFrames(valid_data, valid_labels)
 
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, sampler=None, 
+    #TODO: shuffle train
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, sampler=None, 
                             batch_sampler=None, num_workers=0, pin_memory=False, 
                             drop_last=False, timeout=0, worker_init_fn=None)
     valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, sampler=None, 
@@ -61,7 +62,7 @@ def main():
 
 
     # Optimizer settings
-    optimizer = torch.optim.Adam(model.parameters(), lr=3e-4, betas=(0.9, 0.999))
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.999))
 
     # We can use importance weighted samples [Burda, 2015] to get a better estimate
     # on the log-likelihood.
@@ -81,6 +82,11 @@ def main():
                 # They need to be on the same device and be synchronized.
                 x, y = x.cuda(device=0), y.cuda(device=0)
 
+            #TODO: output of L is nan at batch_idx = 2
+            #TODO: probably error of dimension, or pb ofregularization
+            #TODO: nan is caused by x, not by yx
+            #TODO: this is caused by normalization of x (in time domain)
+            #TODO: max-normalization creates problem, norm-normalization works fine
             L = -elbo(x, y)
             # U = -elbo(u)
 
@@ -96,12 +102,17 @@ def main():
             optimizer.step()
             optimizer.zero_grad()
 
-            total_loss += J_alpha.data[0]
+            # J_alpha is a scalar, so J_alpha.data[0] does not work
+            total_loss += J_alpha.item()
             accuracy += torch.mean((torch.max(y_hat, 1)[1].data == torch.max(y, 1)[1].data).float())
+
+            x_old = x.clone()
+            y_old = y.clone()
             
         if epoch % 1 == 0:
+            #TODO: modify here
             model.eval()
-            m = len(unlabelled)
+            #m = len(unlabelled)
             print("Epoch: {}".format(epoch))
             print("[Train]\t\t J_a: {:.2f}, accuracy: {:.2f}".format(total_loss / m, accuracy / m))
 
@@ -112,20 +123,21 @@ def main():
                     x, y = x.cuda(device=0), y.cuda(device=0)
 
                 L = -elbo(x, y)
-                U = -elbo(x)
+                #U = -elbo(x)
 
                 y_hat = model.classify(x)
                 classication_loss = -torch.sum(y * torch.log(y_hat + 1e-8), dim=1).mean()
 
-                J_alpha = L + alpha * classication_loss + U
+                J_alpha = L + alpha * classication_loss #+ U
 
-                total_loss += J_alpha.data[0]
+                # J_alpha is a scalar, so J_alpha.data[0] does not work
+                total_loss += J_alpha.item()
 
                 _, pred_idx = torch.max(y_hat, 1)
                 _, lab_idx = torch.max(y, 1)
                 accuracy += torch.mean((torch.max(y_hat, 1)[1].data == torch.max(y, 1)[1].data).float())
 
-            m = len(validation)
+            m = len(valid_dataset)
             print("[Validation]\t J_a: {:.2f}, accuracy: {:.2f}".format(total_loss / m, accuracy / m))
 
 

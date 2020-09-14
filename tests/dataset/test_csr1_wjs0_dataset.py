@@ -38,7 +38,8 @@ def test_write_read_frames(dataset_type):
         x, fs_x = sf.read(input_data_dir + path, samplerate=None)
 
         # Cut burst at begining of file
-        x[:int(0.1*fs)] = x[int(0.1*fs):int(0.2*fs)]
+        #x[:int(0.1*fs)] = x[int(0.1*fs):int(0.2*fs)]
+        x = x[int(0.1*fs):]
 
         # Normalize audio
         x = x/(np.max(np.abs(x)))
@@ -71,10 +72,25 @@ def test_write_read_frames(dataset_type):
                   dataset_type=dataset_type,
                   suffix='frames')
     
+    if dataset_type == 'train':
+        # Normalize
+        mu, std = np.mean(spectrograms, axis=1), np.std(spectrograms, axis=1)
+
+        # write spectrograms
+        write_dataset(mu,
+                    output_data_dir=output_data_dir,
+                    dataset_type=dataset_type,
+                    suffix='mu')
+        
+        write_dataset(std,
+                    output_data_dir=output_data_dir,
+                    dataset_type=dataset_type,
+                    suffix='std')
+        
     # Read pickle
     pickle_spectrograms = read_dataset(data_dir=output_data_dir,
-                 dataset_type=dataset_type,
-                 suffix='frames') 
+                dataset_type=dataset_type,
+                suffix='frames') 
     
     # Assert stored data is same as spectrograms
     assert_array_equal(spectrograms, pickle_spectrograms)

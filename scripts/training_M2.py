@@ -3,6 +3,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 from itertools import cycle
 import pickle
+import numpy as np
 
 from python.models.models import DeepGenerativeModel
 from python.models.variational import SVI, ImportanceWeightedSampler
@@ -46,11 +47,25 @@ def main():
     train_labels = pickle.load(open('data/subset/processed/si_tr_s_labels.p', 'rb'))
     valid_labels = pickle.load(open('data/subset/processed/si_dt_05_labels.p', 'rb'))
 
+    # Standard normalize of x (not y)
+    mu = pickle.load(open('data/subset/processed/si_tr_s_mu.p', 'rb'))
+    std = pickle.load(open('data/subset/processed/si_tr_s_std.p', 'rb'))
+
+    mu = np.expand_dims(mu, axis=1)
+    std = np.expand_dims(std, axis=1)
+
+    train_data -= mu
+    valid_data -= mu
+
+    train_data /= (std + 1e-5)
+    valid_data /= (std + 1e-5)
+
+    # Dataset class
     train_dataset = SpectrogramLabeledFrames(train_data, train_labels)
     valid_dataset = SpectrogramLabeledFrames(valid_data, valid_labels)
 
-    #TODO: shuffle train
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, sampler=None, 
+    # Dataloader
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, sampler=None, 
                             batch_sampler=None, num_workers=0, pin_memory=False, 
                             drop_last=False, timeout=0, worker_init_fn=None)
     valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, sampler=None, 
@@ -106,13 +121,11 @@ def main():
             total_loss += J_alpha.item()
             accuracy += torch.mean((torch.max(y_hat, 1)[1].data == torch.max(y, 1)[1].data).float())
 
-            x_old = x.clone()
-            y_old = y.clone()
-            
         if epoch % 1 == 0:
-            #TODO: modify here
             model.eval()
-            #m = len(unlabelled)
+            
+            m = valid_dataset.data.shape[1]
+
             print("Epoch: {}".format(epoch))
             print("[Train]\t\t J_a: {:.2f}, accuracy: {:.2f}".format(total_loss / m, accuracy / m))
 
@@ -137,7 +150,6 @@ def main():
                 _, lab_idx = torch.max(y, 1)
                 accuracy += torch.mean((torch.max(y_hat, 1)[1].data == torch.max(y, 1)[1].data).float())
 
-            m = len(valid_dataset)
             print("[Validation]\t J_a: {:.2f}, accuracy: {:.2f}".format(total_loss / m, accuracy / m))
 
 

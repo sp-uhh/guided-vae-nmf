@@ -7,7 +7,7 @@ import numpy as np
 
 from python.models.models import DeepGenerativeModel
 from python.models.variational import SVI, ImportanceWeightedSampler
-from python.models.utils import binary_cross_entropy, reconstruction_loss
+from python.models.utils import binary_cross_entropy, ikatura_saito_divergence
 
 from python.data import SpectrogramLabeledFrames
 
@@ -71,7 +71,7 @@ def main():
     sampler = ImportanceWeightedSampler(mc=1, iw=1)
 
     #elbo = SVI(model, likelihood=binary_cross_entropy, sampler=sampler)
-    elbo = SVI(model, likelihood=reconstruction_loss, sampler=sampler)
+    elbo = SVI(model, likelihood=ikatura_saito_divergence, sampler=sampler)
 
 
     # Training

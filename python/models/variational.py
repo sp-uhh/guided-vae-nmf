@@ -91,10 +91,16 @@ class SVI(nn.Module):
         likelihood = -self.likelihood(reconstruction, xs)
 
         # p(y)
+        #TODO: don't what this corresponds to. Likelihood of the labels?
         prior = -log_standard_categorical(ys)
 
         # Equivalent to -L(x, y)
+        #TODO: what is the beta (repeat)?
+        #TODO: why is the KL divergence subtracted?
         elbo = likelihood + prior - next(self.beta) * self.model.kl_divergence
+
+        
+        #TODO: is the sampler corresponding to the distribution?
         L = self.sampler(elbo)
 
         if is_labelled:

@@ -181,6 +181,10 @@ class VariationalAutoencoder(nn.Module):
 
         return kl
 
+    def _kld_v2(self, z, q_param):
+        (mu, log_var) = q_param
+        return -0.5 * torch.sum(log_var - mu.pow(2) - log_var.exp(), axis=-1)
+
     def add_flow(self, flow):
         self.flow = flow
 
@@ -241,7 +245,8 @@ class DeepGenerativeModel(VariationalAutoencoder):
         # Add label and data and generate latent variable
         z, z_mu, z_log_var = self.encoder(torch.cat([x, y], dim=1))
 
-        self.kl_divergence = self._kld(z, (z_mu, z_log_var))
+        #self.kl_divergence = self._kld(z, (z_mu, z_log_var))
+        self.kl_divergence = self._kld_v2(z, (z_mu, z_log_var))
 
         # Reconstruct data point from latent data and label
         x_mu = self.decoder(torch.cat([z, y], dim=1))

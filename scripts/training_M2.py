@@ -7,7 +7,7 @@ import numpy as np
 
 from python.models.models import DeepGenerativeModel
 from python.models.variational import SVI, ImportanceWeightedSampler
-from python.models.utils import binary_cross_entropy
+from python.models.utils import binary_cross_entropy, reconstruction_loss
 
 from python.data import SpectrogramLabeledFrames
 
@@ -47,19 +47,6 @@ def main():
     train_labels = pickle.load(open('data/subset/processed/si_tr_s_labels.p', 'rb'))
     valid_labels = pickle.load(open('data/subset/processed/si_dt_05_labels.p', 'rb'))
 
-    # Standard normalize of x (not y)
-    mu = pickle.load(open('data/subset/processed/si_tr_s_mu.p', 'rb'))
-    std = pickle.load(open('data/subset/processed/si_tr_s_std.p', 'rb'))
-
-    mu = np.expand_dims(mu, axis=1)
-    std = np.expand_dims(std, axis=1)
-
-    train_data -= mu
-    valid_data -= mu
-
-    train_data /= (std + 1e-5)
-    valid_data /= (std + 1e-5)
-
     # Dataset class
     train_dataset = SpectrogramLabeledFrames(train_data, train_labels)
     valid_dataset = SpectrogramLabeledFrames(valid_data, valid_labels)
@@ -83,7 +70,8 @@ def main():
     # on the log-likelihood.
     sampler = ImportanceWeightedSampler(mc=1, iw=1)
 
-    elbo = SVI(model, likelihood=binary_cross_entropy, sampler=sampler)
+    #elbo = SVI(model, likelihood=binary_cross_entropy, sampler=sampler)
+    elbo = SVI(model, likelihood=reconstruction_loss, sampler=sampler)
 
 
     # Training
@@ -97,11 +85,6 @@ def main():
                 # They need to be on the same device and be synchronized.
                 x, y = x.cuda(device=0), y.cuda(device=0)
 
-            #TODO: output of L is nan at batch_idx = 2
-            #TODO: probably error of dimension, or pb ofregularization
-            #TODO: nan is caused by x, not by yx
-            #TODO: this is caused by normalization of x (in time domain)
-            #TODO: max-normalization creates problem, norm-normalization works fine
             L = -elbo(x, y)
             # U = -elbo(u)
 
@@ -150,6 +133,7 @@ def main():
                 _, lab_idx = torch.max(y, 1)
                 accuracy += torch.mean((torch.max(y_hat, 1)[1].data == torch.max(y, 1)[1].data).float())
 
+            m = valid_dataset.data.shape[1]
             print("[Validation]\t J_a: {:.2f}, accuracy: {:.2f}".format(total_loss / m, accuracy / m))
 
 

@@ -57,3 +57,6 @@ def log_sum_exp(tensor, dim=-1, sum_op=torch.sum):
 
 def binary_cross_entropy(r, x):
     return -torch.sum(x * torch.log(r + 1e-8) + (1 - x) * torch.log(1 - r + 1e-8), dim=-1)
+
+def reconstruction_loss(r, x):
+    return torch.sum(x/r - torch.log(x/r) - 1) 

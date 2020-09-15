@@ -40,7 +40,8 @@ class GaussianSample(Stochastic):
 
     def forward(self, x):
         mu = self.mu(x)
-        log_var = F.softplus(self.log_var(x))
+        #log_var = F.softplus(self.log_var(x))
+        log_var = self.log_var(x)
 
         return self.reparametrize(mu, log_var), mu, log_var
 
@@ -56,6 +57,7 @@ class Classifier(nn.Module):
         self.logits = nn.Linear(h_dim, y_dim)
 
     def forward(self, x):
+        #TODO: maybe modify activation functions?
         x = F.relu(self.dense(x))
         x = F.softmax(self.logits(x), dim=-1)
         return x
@@ -84,7 +86,8 @@ class Encoder(nn.Module):
 
     def forward(self, x):
         for layer in self.hidden:
-            x = F.relu(layer(x))
+            #x = F.relu(layer(x))
+            x = F.tanh(layer(x))
         return self.sample(x)
 
 
@@ -110,12 +113,15 @@ class Decoder(nn.Module):
 
         self.reconstruction = nn.Linear(h_dim[-1], x_dim)
 
-        self.output_activation = nn.Sigmoid()
+        #self.output_activation = nn.Sigmoid()
+        #self.output_activation = torch.exp
 
     def forward(self, x):
         for layer in self.hidden:
-            x = F.relu(layer(x))
-        return self.output_activation(self.reconstruction(x))
+            #x = F.relu(layer(x))
+            x = F.tanh(layer(x))
+        #return self.output_activation(self.reconstruction(x))
+        return torch.exp(self.reconstruction(x))
 
 
 class VariationalAutoencoder(nn.Module):

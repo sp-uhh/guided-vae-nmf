@@ -17,8 +17,10 @@ import os
 def test_write_read_frames(dataset_type):
     # Parameters
     ## Dataset
-    input_data_dir = 'data/subset/raw/'
-    output_data_dir = 'data/subset/processed/'
+    input_speech_dir = 'data/subset/raw/'
+    output_speech_dir = 'data/subset/processed/'
+
+    output_data_dir = 'data/subset/pickle/'
     fs = int(16e3) # Sampling rate
 
     ## STFT
@@ -28,14 +30,14 @@ def test_write_read_frames(dataset_type):
     dtype = 'complex64'
 
     # Create file list
-    file_paths = speech_list(input_data_dir=input_data_dir,
+    file_paths = speech_list(input_speech_dir=input_speech_dir,
                              dataset_type=dataset_type)
 
     spectrograms = []
 
     for path in file_paths:
 
-        x, fs_x = sf.read(input_data_dir + path, samplerate=None)
+        x, fs_x = sf.read(input_speech_dir + path, samplerate=None)
 
         # Cut burst at begining of file
         #x[:int(0.1*fs)] = x[int(0.1*fs):int(0.2*fs)]
@@ -46,9 +48,9 @@ def test_write_read_frames(dataset_type):
         #x = x/(np.max(np.abs(x)) + 2)
         #x = x/np.linalg.norm(x)
 
-        if not os.path.exists(os.path.dirname(output_data_dir + path)):
-            os.makedirs(os.path.dirname(output_data_dir + path))
-        sf.write(output_data_dir + path, x, fs_x)
+        if not os.path.exists(os.path.dirname(output_speech_dir + path)):
+            os.makedirs(os.path.dirname(output_speech_dir + path))
+        sf.write(output_speech_dir + path, x, fs_x)
         
         if fs != fs_x:
             raise ValueError('Unexpected sampling rate')
@@ -72,21 +74,6 @@ def test_write_read_frames(dataset_type):
                   dataset_type=dataset_type,
                   suffix='frames')
     
-    if dataset_type == 'train':
-        # Normalize
-        mu, std = np.mean(spectrograms, axis=1), np.std(spectrograms, axis=1)
-
-        # write spectrograms
-        write_dataset(mu,
-                    output_data_dir=output_data_dir,
-                    dataset_type=dataset_type,
-                    suffix='mu')
-        
-        write_dataset(std,
-                    output_data_dir=output_data_dir,
-                    dataset_type=dataset_type,
-                    suffix='std')
-        
     # Read pickle
     pickle_spectrograms = read_dataset(data_dir=output_data_dir,
                 dataset_type=dataset_type,
@@ -105,8 +92,10 @@ def test_write_read_frames(dataset_type):
 def test_write_read_labels(dataset_type):
     # Parameters
     ## Dataset
-    input_data_dir = 'data/subset/raw/'
-    output_data_dir = 'data/subset/processed/'
+    input_speech_dir = 'data/subset/raw/'
+    output_speech_dir = 'data/subset/processed/'
+
+    output_data_dir = 'data/subset/pickle/'
     fs = int(16e3) # Sampling rate
 
     ## STFT
@@ -120,14 +109,14 @@ def test_write_read_labels(dataset_type):
     quantile_weight = 0.999
 
     # Create file list
-    file_paths = speech_list(input_data_dir=input_data_dir,
+    file_paths = speech_list(input_speech_dir=input_speech_dir,
                              dataset_type=dataset_type)
 
     labels = []
 
     for path in file_paths:
 
-        x, fs_x = sf.read(input_data_dir + path, samplerate=None)
+        x, fs_x = sf.read(input_speech_dir + path, samplerate=None)
 
         # Cut burst at begining of file
         x[:int(0.1*fs)] = x[int(0.1*fs):int(0.2*fs)]

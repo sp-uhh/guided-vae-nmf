@@ -92,6 +92,7 @@ def main():
             y_hat = model.classify(x)
             
             # Regular cross entropy
+            #TODO: problem because it does not take the non speech class into account (cf PyTorch)
             classication_loss = torch.sum(y * torch.log(y_hat + 1e-8), dim=1).mean()
 
             J_alpha = L - alpha * classication_loss  # + U

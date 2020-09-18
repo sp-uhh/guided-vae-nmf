@@ -9,3 +9,9 @@ def open_file(path):
         subprocess.Popen(["open", path])
     else:
         subprocess.Popen(["xdg-open", path])
+
+# function to return key for any value in a dict
+def get_key(my_dict, val): 
+    for key, value in my_dict.items(): 
+         if val == value: 
+             return key 

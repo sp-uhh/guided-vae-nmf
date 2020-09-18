@@ -19,6 +19,7 @@ data/complete/
 # Unused files
 *math_func.py
 unfinished_func.py
+data_exploration.ipynb
 
 # ignore the following data types
 *.npy

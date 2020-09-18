@@ -4,13 +4,13 @@ from python.processing.target import clean_speech_IBM
 import soundfile as sf
 import numpy as np
 from numpy.testing import assert_array_equal
-from python.data.utils import open_file
+from python.utils import open_file
 
 
 # Parameters
 ## Dataset
-input_data_dir = 'data/subset/raw/'
-output_data_dir = 'data/subset/processed/'
+input_speech_dir = 'data/subset/raw/'
+output_data_dir = 'data/subset/pickle/'
 dataset_type = 'test'
 fs = int(16e3) # Sampling rate
 
@@ -27,7 +27,7 @@ quantile_weight = 0.999
 def main():
 
     # Create file list
-    file_paths = speech_list(input_data_dir=input_data_dir,
+    file_paths = speech_list(input_speech_dir=input_speech_dir,
                              dataset_type=dataset_type)
 
     spectrograms = []
@@ -35,7 +35,7 @@ def main():
 
     for path in file_paths:
         #paths.append(path)
-        x, fs_x = sf.read(input_data_dir + path, samplerate=None)
+        x, fs_x = sf.read(input_speech_dir + path, samplerate=None)
         x = x/np.max(np.abs(x))
         if fs != fs_x:
             raise ValueError('Unexpected sampling rate')

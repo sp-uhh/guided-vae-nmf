@@ -5,6 +5,9 @@ from itertools import cycle
 import pickle
 import numpy as np
 
+import sys
+sys.path.append("..")
+
 from python.models.models import DeepGenerativeModel
 from python.models.variational import SVI, ImportanceWeightedSampler
 from python.models.utils import binary_cross_entropy, ikatura_saito_divergence
@@ -30,7 +33,7 @@ batch_size = 16
 learning_rate = 1e-3
 log_interval = 1
 start_epoch = 1
-end_epoch = 10
+end_epoch = 100
 
 
 def main():
@@ -41,11 +44,11 @@ def main():
 
     # Load data
     print('Load data')
-    train_data = pickle.load(open('data/subset/processed/si_tr_s_frames.p', 'rb'))
-    valid_data = pickle.load(open('data/subset/processed/si_dt_05_frames.p', 'rb'))
+    train_data = pickle.load(open('../data/subset/processed/si_tr_s_frames.p', 'rb'))
+    valid_data = pickle.load(open('../data/subset/processed/si_dt_05_frames.p', 'rb'))
 
-    train_labels = pickle.load(open('data/subset/processed/si_tr_s_labels.p', 'rb'))
-    valid_labels = pickle.load(open('data/subset/processed/si_dt_05_labels.p', 'rb'))
+    train_labels = pickle.load(open('../data/subset/processed/si_tr_s_labels.p', 'rb'))
+    valid_labels = pickle.load(open('../data/subset/processed/si_dt_05_labels.p', 'rb'))
 
     # Dataset class
     train_dataset = SpectrogramLabeledFrames(train_data, train_labels)
@@ -92,7 +95,8 @@ def main():
             y_hat = model.classify(x)
             
             # Regular cross entropy
-            classication_loss = torch.sum(y * torch.log(y_hat + 1e-8), dim=1).mean()
+            classication_loss = -torch.sum(y*torch.log(y_hat + 1e-8) + \
+                                       (1.0-y)*torch.log(1.0 - y_hat + 1e-8), dim=1).mean()
 
             J_alpha = L - alpha * classication_loss  # + U
 
@@ -102,6 +106,9 @@ def main():
 
             # J_alpha is a scalar, so J_alpha.data[0] does not work
             total_loss += J_alpha.item()
+
+            # accuracy += 
+
             accuracy += torch.mean((torch.max(y_hat, 1)[1].data == torch.max(y, 1)[1].data).float())
 
         if epoch % 1 == 0:
@@ -122,7 +129,10 @@ def main():
                 #U = -elbo(x)
 
                 y_hat = model.classify(x)
-                classication_loss = -torch.sum(y * torch.log(y_hat + 1e-8), dim=1).mean()
+                y_hat_binary = [y_hat > 0.5]
+
+                classication_loss = -torch.sum(y*torch.log(y_hat + 1e-8) + \
+                                       (1.0-y)*torch.log(1.0 - y_hat + 1e-8), dim=1).mean()
 
                 J_alpha = L + alpha * classication_loss #+ U
 
@@ -131,6 +141,8 @@ def main():
 
                 _, pred_idx = torch.max(y_hat, 1)
                 _, lab_idx = torch.max(y, 1)
+
+
                 accuracy += torch.mean((torch.max(y_hat, 1)[1].data == torch.max(y, 1)[1].data).float())
 
             m = valid_dataset.data.shape[1]

@@ -4,6 +4,7 @@ from torch.utils.data import DataLoader
 from itertools import cycle
 import pickle
 import numpy as np
+from sklearn.metrics import f1_score
 
 import sys
 sys.path.append("..")
@@ -41,7 +42,6 @@ def main():
     model = DeepGenerativeModel([x_dim, y_dim, z_dim, h_dim])
     if cuda: model = model.cuda()
 
-
     # Load data
     print('Load data')
     train_data = pickle.load(open('../data/subset/processed/si_tr_s_frames.p', 'rb'))
@@ -65,7 +65,6 @@ def main():
     print('- Number of training samples: {}'.format(len(train_dataset)))
     print('- Number of validation samples: {}'.format(len(valid_dataset)))
 
-
     # Optimizer settings
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.999))
 
@@ -75,7 +74,6 @@ def main():
 
     #elbo = SVI(model, likelihood=binary_cross_entropy, sampler=sampler)
     elbo = SVI(model, likelihood=ikatura_saito_divergence, sampler=sampler)
-
 
     # Training
     for epoch in range(start_epoch, end_epoch):
@@ -93,6 +91,9 @@ def main():
 
             # Add auxiliary classification loss q(y|x)
             y_hat = model.classify(x)
+            y_seg = y_hat > 0.5
+            # accuracy += F1_score(y, y_seg)
+            accuracy += f1_score(y.cpu().numpy(), y_seg.cpu().numpy(), average="samples")
             
             # Regular cross entropy
             classication_loss = -torch.sum(y*torch.log(y_hat + 1e-8) + \
@@ -107,17 +108,15 @@ def main():
             # J_alpha is a scalar, so J_alpha.data[0] does not work
             total_loss += J_alpha.item()
 
-            # accuracy += 
-
-            accuracy += torch.mean((torch.max(y_hat, 1)[1].data == torch.max(y, 1)[1].data).float())
+            # accuracy += torch.mean((torch.max(y_hat, 1)[1].data == torch.max(y, 1)[1].data).float())
 
         if epoch % 1 == 0:
             model.eval()
             
-            m = valid_dataset.data.shape[1]
+            t = train_dataset.data.shape[1]
 
             print("Epoch: {}".format(epoch))
-            print("[Train]\t\t J_a: {:.2f}, accuracy: {:.2f}".format(total_loss / m, accuracy / m))
+            print("[Train]\t\t J_a: {:.2f}, accuracy: {:.2f}".format(total_loss / t, accuracy / t))
 
             total_loss, accuracy = (0, 0)
             for batch_idx, (x, y) in enumerate(valid_loader):
@@ -129,7 +128,10 @@ def main():
                 #U = -elbo(x)
 
                 y_hat = model.classify(x)
-                y_hat_binary = [y_hat > 0.5]
+                y_seg = y_hat > 0.5
+                # accuracy += F1_score(y, y_seg)
+                accuracy += f1_score(y.cpu().numpy(), y_seg.cpu().numpy(), average="samples")
+
 
                 classication_loss = -torch.sum(y*torch.log(y_hat + 1e-8) + \
                                        (1.0-y)*torch.log(1.0 - y_hat + 1e-8), dim=1).mean()
@@ -142,8 +144,7 @@ def main():
                 _, pred_idx = torch.max(y_hat, 1)
                 _, lab_idx = torch.max(y, 1)
 
-
-                accuracy += torch.mean((torch.max(y_hat, 1)[1].data == torch.max(y, 1)[1].data).float())
+                # accuracy += torch.mean((torch.max(y_hat, 1)[1].data == torch.max(y, 1)[1].data).float())
 
             m = valid_dataset.data.shape[1]
             print("[Validation]\t J_a: {:.2f}, accuracy: {:.2f}".format(total_loss / m, accuracy / m))

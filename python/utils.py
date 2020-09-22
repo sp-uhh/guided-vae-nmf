@@ -9,3 +9,4 @@ def open_file(path):
         subprocess.Popen(["open", path])
     else:
         subprocess.Popen(["xdg-open", path])
+

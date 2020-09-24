@@ -18,7 +18,8 @@ input_speech_dir = 'data/subset/raw/'
 input_noise_dir = 'data/complete/raw/qutnoise_databases/' # change the name of the subfolder in your computer
 output_noise_dir = 'data/complete/processed/qutnoise_databases/' # change the name of the subfolder in your computer
 
-output_data_dir = 'data/subset/pickle/'
+output_wav_dir = 'data/subset/processed/'
+output_pickle_dir = 'data/subset/pickle/'
 
 ## STFT
 fs = int(16e3) # Sampling rate
@@ -74,9 +75,9 @@ def main():
     mixtures = []
     noises = []
 
-    for i, path in enumerate(file_paths):
+    for i, file_path in enumerate(file_paths):
 
-        speech, fs_speech = sf.read(input_speech_dir + path, samplerate=None)
+        speech, fs_speech = sf.read(input_speech_dir + file_path, samplerate=None)
 
         # Cut burst at begining of file
         speech = speech[int(0.1*fs):]
@@ -108,13 +109,24 @@ def main():
         noises.append(noise)
         #mixtures.append((speech+noise)/np.max(speech+noise))
         mixtures.append(speech+noise)
+
+        # Save .wav files
+        output_path = output_wav_dir + file_path
+        output_path = os.path.splitext(output_path)[0]
+
+        if not os.path.exists(os.path.dirname(output_path)):
+            os.makedirs(os.path.dirname(output_path))
+        
+        sf.write(output_path + '_s.wav', speech, fs)
+        sf.write(output_path + '_n.wav', noise, fs)
+        sf.write(output_path + '_x.wav', speech+noise, fs)
     
     #pickle.dump(audio_files, open(output_data_dir + '../data/pickle/clean_speech.p', 'wb'), protocol=4)
-    write_dataset(speeches, output_data_dir, dataset_type, 'speech-505')
-    write_dataset(noises, output_data_dir, dataset_type, 'noise-505')
-    write_dataset(mixtures, output_data_dir, dataset_type, 'mixture-505')
+    write_dataset(speeches, output_pickle_dir, dataset_type, 'speech-505')
+    write_dataset(noises, output_pickle_dir, dataset_type, 'noise-505')
+    write_dataset(mixtures, output_pickle_dir, dataset_type, 'mixture-505')
 
-    open_file(output_data_dir)
+    open_file(output_pickle_dir)
 
 if __name__ == '__main__':
     main()

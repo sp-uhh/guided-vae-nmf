@@ -74,6 +74,7 @@ def main():
     speeches = []
     mixtures = []
     noises = []
+    all_snr_dB = []
 
     for i, file_path in enumerate(file_paths):
 
@@ -96,6 +97,7 @@ def main():
 
         # Select SNR
         snr_dB = snrs[snrs_index[i]]
+        all_snr_dB.append(snr_dB)
 
         # Compute noise gain
         speech_power = np.sum(np.power(speech, 2))
@@ -120,11 +122,17 @@ def main():
         sf.write(output_path + '_s.wav', speech, fs)
         sf.write(output_path + '_n.wav', noise, fs)
         sf.write(output_path + '_x.wav', speech+noise, fs)
+
+        # TODO: save SNR, level_s, level_n in a figure
     
     #pickle.dump(audio_files, open(output_data_dir + '../data/pickle/clean_speech.p', 'wb'), protocol=4)
     write_dataset(speeches, output_pickle_dir, dataset_type, 'speech-505')
     write_dataset(noises, output_pickle_dir, dataset_type, 'noise-505')
     write_dataset(mixtures, output_pickle_dir, dataset_type, 'mixture-505')
+
+    # TODO: save SNR, level_s, level_n in 1 big csv
+    write_dataset(all_snr_dB, output_wav_dir, dataset_type, 'snr_db')
+    # TODO: save histogram of SNR
 
     open_file(output_pickle_dir)
 

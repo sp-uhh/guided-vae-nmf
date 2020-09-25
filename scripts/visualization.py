@@ -4,16 +4,15 @@ from python.processing.target import clean_speech_IBM
 import soundfile as sf
 import numpy as np
 
-import matplotlib.pyplot as plt
-from python.visualization import display_waveplot, display_spectrogram
+from python.visualization import display_waveplot, display_spectrogram, \
+    display_wav_spectro_mask, display_multiple_signals
 import numpy as np
-import matplotlib.gridspec as grd
 import os
 from python.utils import open_file
 
 # Parameters
 ## Dataset
-input_data_dir = 'data/subset/raw/'
+input_speech_dir = 'data/subset/raw/'
 output_data_dir = 'data/subset/processed/'
 dataset_type = 'test'
 fs = int(16e3) # Sampling rate
@@ -37,11 +36,11 @@ fontsize = 30
 
 def main():
     # Create file list
-    file_paths = speech_list(input_data_dir=input_data_dir,
+    file_paths = speech_list(input_speech_dir=input_speech_dir,
                              dataset_type=dataset_type)
     
     for path in file_paths:
-        x, fs_x = sf.read(input_data_dir + path, samplerate=None)
+        x, fs_x = sf.read(input_speech_dir + path, samplerate=None)
         x = x/np.max(np.abs(x))
         if fs != fs_x:
             raise ValueError('Unexpected sampling rate')
@@ -51,7 +50,7 @@ def main():
                     fs=fs,
                     wlen_sec=wlen_sec,
                     win=win,
-                    hop_percent=hop_percent)
+                    hop_percent=hop_percent) # shape = (freq_bins, frames)
 
         # binary mask
         x_ibm = clean_speech_IBM(x_tf,
@@ -59,35 +58,28 @@ def main():
                                 quantile_weight=quantile_weight)
 
         # Plot waveplot + spectrogram + binary mask
-        fig = plt.figure(figsize=(20,25))
+        fig = display_wav_spectro_mask(x, x_tf, x_ibm,
+                                 fs=fs, vmin=vmin, vmax=vmax,
+                                 wlen_sec=wlen_sec, hop_percent=hop_percent,
+                                 xticks_sec=xticks_sec, fontsize=fontsize)
 
-        # create a 2 X 2 grid
-        gs = grd.GridSpec(3, 2,
-                        height_ratios=[5,10,10],
-                        width_ratios=[10,0.5],
-                        wspace=0.1,
-                        hspace=0.3,
-                        left=0.08)
+        # signal_list = [
+        #     [x, x_tf, x_ibm], # mixture: (waveform, tf_signal, no mask)
+        #     [x, x_tf, x_ibm], # clean speech
+        #     [x, x_tf, x_ibm]
+        # ]
+        # fig = display_multiple_signals(signal_list,
+        #                     fs=fs, vmin=vmin, vmax=vmax,
+        #                     wlen_sec=wlen_sec, hop_percent=hop_percent,
+        #                     xticks_sec=xticks_sec, fontsize=fontsize)
 
-        # line plot
-        ax = plt.subplot(gs[0])
-        display_waveplot(x, fs, xticks_sec, fontsize)
-
-        # image plot
-        ax = plt.subplot(gs[2])
-        display_spectrogram(x_tf, True, vmin, vmax, fs, wlen_sec, hop_percent, xticks_sec, 'magma', fontsize)
-
-        # color bar in it's own axis
-        colorAx = plt.subplot(gs[3])
-        cbar = plt.colorbar(cax=colorAx, format='%+2.0f dB')
-
-        # image plot
-        ax = plt.subplot(gs[4])
-        display_spectrogram(x_ibm, False, 0, 1, fs, wlen_sec, hop_percent, xticks_sec, 'Greys_r', fontsize)
-
-        # color bar in it's own axis
-        colorAx = plt.subplot(gs[5])
-        plt.colorbar(cax=colorAx, format='%0.1f')
+        title = "Input SNR = {:.1f} dB \n" \
+                   "SI-SDR = {:.1f} dB, " \
+                   "SI-SIR = {:.1f} dB, " \
+                   "SI-SAR = {:.1f} dB \n" \
+                   "STOI = {:.1f}  \n" \
+                   "F1-score = {:.2f} dB \n".format(-5, -5, -5, -5, -5, 0.99)
+        fig.suptitle(title, fontsize=40)
 
         # Save figure
         output_path = output_data_dir + os.path.splitext(path)[0] + '_fig.png'
@@ -98,7 +90,7 @@ def main():
     print("data is stored in " + output_data_dir)
     
     #Open output directory
-    open_file(output_data_dir)
+    #open_file(output_data_dir)
 
 if __name__ == '__main__':
     main()

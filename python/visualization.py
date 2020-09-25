@@ -1,6 +1,9 @@
 import numpy as np
 import librosa.display
+import matplotlib
+matplotlib.use('pdf') # disable interactive backend (required when remote ssh)
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as grd
 
 def display_waveplot(x,
                      fs=16e3,
@@ -37,9 +40,9 @@ def display_waveplot(x,
 
 def display_spectrogram(complex_spec,
                         convert_to_db=False,
+                        fs=16e3,
                         vmin=-60,
                         vmax=10,
-                        fs=16e3,
                         wlen_sec=50e-3,
                         hop_percent=0.5,
                         xticks_sec=1.0,
@@ -90,3 +93,115 @@ def display_spectrogram(complex_spec,
     plt.yticks(fontsize=fontsize)
 
     return img
+
+def display_wav_spectro_mask(x,
+                             x_tf,
+                             x_ibm,
+                             fs=16e3,
+                             vmin=-60,
+                             vmax=10,
+                             wlen_sec=50e-3,
+                             hop_percent=0.5,
+                             xticks_sec=1.0,
+                             fontsize=50):
+        
+    # Plot waveplot + spectrogram + binary mask
+    fig = plt.figure(figsize=(20,25))
+
+    # create a 2 X 2 grid
+    gs = grd.GridSpec(3, 2,
+                    height_ratios=[5,10,10],
+                    width_ratios=[10,0.5],
+                    wspace=0.1,
+                    hspace=0.3,
+                    left=0.08)
+
+    # line plot
+    ax = plt.subplot(gs[0])
+    display_waveplot(x, fs, xticks_sec, fontsize)
+
+    # image plot
+    ax = plt.subplot(gs[2])
+    display_spectrogram(x_tf, True, fs, vmin, vmax, wlen_sec, hop_percent, xticks_sec, 'magma', fontsize)
+
+    # color bar in it's own axis
+    colorAx = plt.subplot(gs[3])
+    cbar = plt.colorbar(cax=colorAx, format='%+2.0f dB')
+
+    # image plot
+    ax = plt.subplot(gs[4])
+    display_spectrogram(x_ibm, False, fs, 0, 1, wlen_sec, hop_percent, xticks_sec, 'Greys_r', fontsize)
+
+    # color bar in it's own axis
+    colorAx = plt.subplot(gs[5])
+    plt.colorbar(cax=colorAx, format='%0.1f')
+
+    return fig
+
+def display_multiple_signals(signal_list,
+                             fs=16e3,
+                             vmin=-60,
+                             vmax=10,
+                             wlen_sec=50e-3,
+                             hop_percent=0.5,
+                             xticks_sec=1.0,
+                             fontsize=50):
+    """Generate waveplot + spectrogram + mask of multiple signals
+
+    Args:
+        signal_list ([type]): list of signals as [[waveform_1, tf_signal_1, mask_1], [waveform_2, ...], [...]]
+        fs ([type], optional): [description]. Defaults to 16e3.
+        vmin (int, optional): [description]. Defaults to -60.
+        vmax (int, optional): [description]. Defaults to 10.
+        wlen_sec ([type], optional): [description]. Defaults to 50e-3.
+        hop_percent (float, optional): [description]. Defaults to 0.5.
+        xticks_sec (float, optional): [description]. Defaults to 1.0.
+        fontsize (int, optional): [description]. Defaults to 50.
+
+    Returns:
+        [type]: [description]
+    """
+    # Number of different signals
+    nb_signals = len(signal_list)
+    
+    # Plot waveplot + spectrogram + binary mask
+    fig = plt.figure(figsize=(25*nb_signals,25))
+    
+    # create a 2 X 2 grid
+    gs = grd.GridSpec(3, 3*nb_signals,
+                    height_ratios=[5,10,10],
+                    width_ratios=[10,0.5,2.0]*nb_signals,
+                    wspace=0.1,
+                    hspace=0.3,
+                    left=0.08)
+
+    for i, [x, x_tf, x_ibm] in enumerate(signal_list):
+
+        # line plot
+        ax = plt.subplot(gs[3*i])
+        display_waveplot(x, fs, xticks_sec, fontsize)
+
+        # image plot
+        #ax = plt.subplot(gs[(i+2)])
+        ax = plt.subplot(gs[3*(i+3)])
+        display_spectrogram(x_tf, True, fs, vmin, vmax, wlen_sec, hop_percent, xticks_sec, 'magma', fontsize)
+
+        # color bar in it's own axis
+        #colorAx = plt.subplot(gs[(i+2)*nb_signals + 1])
+        colorAx = plt.subplot(gs[3*(i+3) + 1])
+        cbar = plt.colorbar(cax=colorAx, format='%+2.0f dB')
+
+        if not (x_ibm is None):
+            # image plot
+            #ax = plt.subplot(gs[(i+4)*nb_signals])
+            ax = plt.subplot(gs[3*(i+6)])
+            display_spectrogram(x_ibm, False, fs, 0, 1, wlen_sec, hop_percent, xticks_sec, 'Greys_r', fontsize)
+
+            # color bar in it's own axis
+            #colorAx = plt.subplot(gs[(i+4)*nb_signals+1])
+            colorAx = plt.subplot(gs[3*(i+6)+1])
+            plt.colorbar(cax=colorAx, format='%0.1f')
+    
+    #gs.tight_layout(fig)
+
+    return fig

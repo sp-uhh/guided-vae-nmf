@@ -1,16 +1,12 @@
 import os
-import sys
-import math
 import pickle
 import numpy as np
-import matplotlib.pyplot as plt
 import torch
 from torch import nn
 import time
 import soundfile as sf
 
 from python.dataset.csr1_wjs0_dataset import speech_list
-
 from python.processing.stft import stft, istft
 from python.processing.target import clean_speech_IBM
 from python.models import mcem_julius, mcem_simon
@@ -18,12 +14,16 @@ from python.models.models import DeepGenerativeModel
 #from stcn import STCN, evaluate, model_parameters
 #from utils import count_parameters
 
-#from pystoi import stoi
 
 # Settings
+dataset_type = 'test'
+input_speech_dir = 'data/subset/raw/'
+processed_data_dir = 'data/subset/processed/'
+#TODO: input from processed data
 
 cuda = torch.cuda.is_available()
 eps = np.finfo(float).eps # machine epsilon
+
 
 # Parameters
 ## STFT
@@ -34,12 +34,9 @@ win = 'hann' # type of window
 dtype = 'complex64'
 
 
-## Ideal binary mask
-quantile_fraction = 0.98
-quantile_weight = 0.999
-
 
 ## Deep Generative Model
+model_name = 'dummy_M2_10_epoch_010_vloss_108.79.pt'
 x_dim = 513 # frequency bins (spectrogram)
 y_dim = 513 # frequency bins (binary mask)
 z_dim = 128
@@ -60,12 +57,9 @@ nsamples_WF = 25
 burnin_WF = 75
 var_RW = 0.01
 
+# Output_data_dir
+output_data_dir = 'data/subset/models/' + model_name + '/'
 
-## Plot spectrograms
-vmin = -40 # in dB
-vmax = 20 # in dB
-xticks_sec = 2.0 # in seconds
-fontsize = 30
 
 def main():
 
@@ -76,11 +70,12 @@ def main():
     print('Device: %s' % (device))
     if torch.cuda.device_count() >= 1: print("Number GPUs: ", torch.cuda.device_count())
 
-    test_data = pickle.load(open('data/subset/pickle/si_et_05_mixture-505.p', 'rb'))
+    #TODO: modify and just read stored .wav files
+    if dataset_type:
+        test_data = pickle.load(open('data/subset/pickle/si_et_05_mixture-505.p', 'rb'))
 
     model = DeepGenerativeModel([x_dim, y_dim, z_dim, h_dim])
-    model_path = 'models/dummy_M2_10_epoch_010_vloss_108.79.pt'
-    model.load_state_dict(torch.load(model_path))
+    model.load_state_dict(torch.load('models/' + model_name))
     if cuda: model = model.cuda()
 
     model.eval()
@@ -88,12 +83,8 @@ def main():
         param.requires_grad = False
 
     # Create file list
-    input_speech_dir = 'data/subset/raw/'
-    dataset_type = 'test'
     file_paths = speech_list(input_speech_dir=input_speech_dir,
                              dataset_type=dataset_type)
-    
-    output_data_dir = 'data/subset/models/dummy_M2_10_epoch_010_vloss_108.79.pt/'
 
     # s_hat_list = []
     # n_hat_list = []
@@ -112,12 +103,7 @@ def main():
                  win=win,
                  hop_percent=hop_percent,
                  dtype=dtype)
-                
-        # binary mask
-        y = clean_speech_IBM(x_tf,
-                             quantile_fraction=quantile_fraction,
-                             quantile_weight=quantile_weight)
-        
+                        
         # Transpose to match PyTorch
         x_tf = x_tf.T # (frames, freq_bins)
         
@@ -126,10 +112,22 @@ def main():
 
         # Classify
         y_hat = model.classify(x) # (frames, freq_bins)
+        
+        # s_t, fs_s = sf.read(processed_data_dir + os.path.splitext(file_path)[0] + '_s.wav') # clean speech
+        # # TF reprepsentation
+        # s_tf = stft(s_t,
+        #          fs=fs,
+        #          wlen_sec=wlen_sec,
+        #          win=win,
+        #          hop_percent=hop_percent,
+        #          dtype=dtype) # shape = (freq_bins, frames)
+        # y_hat = clean_speech_IBM(s_tf,
+        #                      quantile_fraction=0.98,
+        #                      quantile_weight=0.999)
+        # y_hat = torch.from_numpy(y_hat.T).to(device)
 
         # Encode
         Z_init, _, _ = model.encoder(torch.cat([x, y_hat], dim=1))
-        
 
         # MCEM
         if use_mcem_julius and not use_mcem_simon:
@@ -196,38 +194,23 @@ def main():
             win=win,
             hop_percent=hop_percent,
             max_len=T_orig)
-   
-        #TODO: plots of target / estimation
-        # mixture signal (wav + spectro)
-        # target signal (wav + spectro + mask)
-        # estimated signal (wav + spectro + mask)
 
-        #TODO: compute metrics
-        ## SI-SDR, SI-SAR, SI-SNR
-
-        ## STOI
-
-        ## PESQ
-
-        ## F1 score
-        s_hat.append(S_hat)
-        n_hat.append(N_hat)
-
-        # Save .wav files and metrics
+        
+        # Save .wav files
         output_path = output_data_dir + file_path
         output_path = os.path.splitext(output_path)[0]
 
         if not os.path.exists(os.path.dirname(output_path)):
             os.makedirs(os.path.dirname(output_path))
         
-        sf.write(output_path + '_s_est.wav', S_hat, fs)
-        sf.write(output_path + '_n_est.wav', N_hat, fs)
-
-        # pickle.dump(s_hat, open('../data/pickle/s_hat_vae', 'wb'), protocol=4)
-        # pickle.dump(n_hat, open('../data/pickle/n_hat_vae', 'wb'), protocol=4)
-
-
+        sf.write(output_path + '_s_est.wav', s_hat, fs)
+        sf.write(output_path + '_n_est.wav', n_hat, fs)
         
+        # Save binary mask
+        torch.save(y_hat, output_path + '_ibm_est.pt')
+
+    # pickle.dump(s_hat, open('../data/pickle/s_hat_vae', 'wb'), protocol=4)
+    # pickle.dump(n_hat, open('../data/pickle/n_hat_vae', 'wb'), protocol=4)
         
 if __name__ == '__main__':
     main()

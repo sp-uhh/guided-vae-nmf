@@ -41,11 +41,11 @@ def main():
 
     # Load data
     print('Load data')
-    train_data = pickle.load(open('data/subset/processed/si_tr_s_frames.p', 'rb'))
-    valid_data = pickle.load(open('data/subset/processed/si_dt_05_frames.p', 'rb'))
+    train_data = pickle.load(open('data/subset/pickle/si_tr_s_frames.p', 'rb'))
+    valid_data = pickle.load(open('data/subset/pickle/si_dt_05_frames.p', 'rb'))
 
-    train_labels = pickle.load(open('data/subset/processed/si_tr_s_labels.p', 'rb'))
-    valid_labels = pickle.load(open('data/subset/processed/si_dt_05_labels.p', 'rb'))
+    train_labels = pickle.load(open('data/subset/pickle/si_tr_s_labels.p', 'rb'))
+    valid_labels = pickle.load(open('data/subset/pickle/si_dt_05_labels.p', 'rb'))
 
     # Dataset class
     train_dataset = SpectrogramLabeledFrames(train_data, train_labels)
@@ -118,7 +118,8 @@ def main():
 
                 if cuda:
                     x, y = x.cuda(device=0), y.cuda(device=0)
-
+                
+                #TODO: 1st classify, then encode
                 L = -elbo(x, y)
                 #U = -elbo(x)
 
@@ -137,6 +138,9 @@ def main():
             m = valid_dataset.data.shape[1]
             print("[Validation]\t J_a: {:.2f}, accuracy: {:.2f}".format(total_loss / m, accuracy / m))
 
+    # Save model
+    torch.save(model.state_dict(), 'models/dummy_M2_10_epoch_{:03d}_vloss_{:.2f}.pt'.format(
+        end_epoch, total_loss / m))
 
 if __name__ == '__main__':
     main()

@@ -113,8 +113,8 @@ def main():
         # Classify
         y_hat = model.classify(x) # (frames, freq_bins)
         
+        # # Target
         # s_t, fs_s = sf.read(processed_data_dir + os.path.splitext(file_path)[0] + '_s.wav') # clean speech
-        # # TF reprepsentation
         # s_tf = stft(s_t,
         #          fs=fs,
         #          wlen_sec=wlen_sec,

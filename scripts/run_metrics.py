@@ -3,17 +3,17 @@ import numpy as np
 import torch
 import soundfile as sf
 import librosa
+import json
 
 from python.dataset.csr1_wjs0_dataset import speech_list, read_dataset
 from python.processing.stft import stft, istft
 from python.processing.target import clean_speech_IBM
 
-from python.metrics import energy_ratios
+from python.metrics import energy_ratios, mean_confidence_interval
 from pystoi import stoi
-#from pesq import pesq
+from pesq import pesq
 #from uhh_sp.evaluation import polqa
 from sklearn.metrics import f1_score
-
 
 from python.visualization import display_multiple_signals
 
@@ -50,12 +50,13 @@ vmax = 20 # in dB
 xticks_sec = 2.0 # in seconds
 fontsize = 30
 
-
-
+## Stats
+confidence = 0.95 # confidence interval
 
 def main():
     # Load input SNR
     all_snr_db = read_dataset(processed_data_dir, dataset_type, 'snr_db')
+    all_snr_db = np.array(all_snr_db)
 
     # Create file list
     file_paths = speech_list(input_speech_dir=input_speech_dir,
@@ -79,6 +80,7 @@ def main():
         s_hat_t, fs_s_hat = sf.read(model_data_dir + os.path.splitext(file_path)[0] + '_s_est.wav') # est. speech
 
         # compute metrics
+        #TODO: potential pb with SI-SIR --> compute segmental SI-SDR
         ## SI-SDR, SI-SAR, SI-SNR
         si_sdr, si_sir, si_sar = energy_ratios(s_hat=s_hat_t, s=s_t, n=n_t)
         all_si_sdr.append(si_sdr)
@@ -90,8 +92,8 @@ def main():
         all_stoi.append(stoi_s_hat)
 
         ## PESQ
-        # pesq_s_hat = pesq(fs, s_t, s_hat_t, 'wb')
-        # all_pesq.append(pesq_s_hat)
+        pesq_s_hat = pesq(fs, s_t, s_hat_t, 'wb') # wb = wideband
+        all_pesq.append(pesq_s_hat)
         
         ## POLQA
         # polqa_s_hat = polqa(s, s_t, fs)
@@ -114,8 +116,8 @@ def main():
                              quantile_fraction=quantile_fraction,
                              quantile_weight=quantile_weight)
 
-        f1score_s_hat = f1_score(y.flatten(), y_seg.flatten(), average="binary")
-        all_f1score.append(f1_score)
+        f1score_s_hat = f1_score(y.flatten(), y_hat.flatten(), average="binary")
+        all_f1score.append(f1score_s_hat)
 
         # plots of target / estimation
         # TF reprepsentation
@@ -151,17 +153,56 @@ def main():
             "SI-SDR = {:.1f} dB, " \
             "SI-SIR = {:.1f} dB, " \
             "SI-SAR = {:.1f} dB \n" \
-            "STOI = {:.1f}  \n" \
-            "F1-score = {:.2f} \n".format(all_snr_db[i], si_sdr, si_sir, si_sar, stoi_s_hat, f1score_s_hat)
+            "STOI = {:.2f}, " \
+            "PESQ = {:.2f} \n" \
+            "F1-score = {:.3f} \n".format(all_snr_db[i], si_sdr, si_sir, si_sar, stoi_s_hat, pesq_s_hat, f1score_s_hat)
 
         fig.suptitle(title, fontsize=40)
 
         # Save figure
         fig.savefig(model_data_dir + os.path.splitext(file_path)[0] + '_fig.png')
 
+    # Confidence interval
+    metrics = {
+        'SI-SDR': all_si_sdr,
+        'SI-SIR': all_si_sir,
+        'SI-SAR': all_si_sar,
+        'STOI': all_stoi,
+        'PESQ': all_pesq,
+        'F1-score': all_f1score
+    }
+
+    stats = {}
     
-    #TODO: save each metric in 1 separate csv (si_sdr, si_sar, etc. )
-    #TODO: ecart_type directly and store in stats
+    # Print the names of the columns. 
+    print ("{:<10} {:<10} {:<10}".format('METRIC', 'AVERAGE', 'CONF. INT.')) 
+    for key, metric in metrics.items():
+        m, h = mean_confidence_interval(metric, confidence=confidence)
+        stats[key] = {'avg': m, '+/-': h}
+        print ("{:<10} {:<10} {:<10}".format(key, m, h))
+    print('\n')
+
+    # Save stats (si_sdr, si_sar, etc. )
+    with open(model_data_dir + 'stats.json', 'w') as f:
+        json.dump(stats, f)
+
+    # Metrics by input SNR
+    for snr_db in np.unique(all_snr_db):
+        stats = {}
+
+        print('Input SNR = {:.2f}'.format(snr_db))
+        # Print the names of the columns. 
+        print ("{:<10} {:<10} {:<10}".format('METRIC', 'AVERAGE', 'CONF. INT.')) 
+        for key, metric in metrics.items():
+            subset_metric = np.array(metric)[np.where(all_snr_db == snr_db)]
+            m, h = mean_confidence_interval(subset_metric, confidence=confidence)
+            stats[key] = {'avg': m, '+/-': h}
+            print ("{:<10} {:<10} {:<10}".format(key, m, h))
+        print('\n')
+
+        # Save stats (si_sdr, si_sar, etc. )
+        with open(model_data_dir + 'stats_{:g}.json'.format(snr_db), 'w') as f:
+            json.dump(stats, f)
 
 if __name__ == '__main__':
     main()

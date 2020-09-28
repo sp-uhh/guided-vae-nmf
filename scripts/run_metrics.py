@@ -4,6 +4,7 @@ import torch
 import soundfile as sf
 import librosa
 import json
+from tqdm import tqdm
 
 from python.dataset.csr1_wjs0_dataset import speech_list, read_dataset
 from python.processing.stft import stft, istft
@@ -44,7 +45,9 @@ quantile_fraction = 0.98
 quantile_weight = 0.999
 
 ## Deep Generative Model
-model_name = 'dummy_M2_10_epoch_010_vloss_108.79.pt'
+#model_name = 'dummy_M2_10_epoch_010_vloss_108.79'
+model_name = 'dummy_M2_alpha_5.0_epoch_100_vloss_466.72'
+
 model_data_dir = 'data/' + dataset_size + '/models/' + model_name + '/'
 
 ## Plot spectrograms
@@ -74,7 +77,7 @@ def main():
     all_polqa = []
     all_f1score = []
 
-    for i, file_path in enumerate(file_paths):
+    for i, file_path in tqdm(enumerate(file_paths)):
 
         # Read files
         s_t, fs_s = sf.read(processed_data_dir + os.path.splitext(file_path)[0] + '_s.wav') # clean speech
@@ -119,7 +122,7 @@ def main():
                              quantile_fraction=quantile_fraction,
                              quantile_weight=quantile_weight)
 
-        f1score_s_hat = f1_score(y.flatten(), y_hat.flatten(), average="binary")
+        f1score_s_hat = f1_score(y.flatten(), y_seg.flatten(), average="binary")
         all_f1score.append(f1score_s_hat)
 
         # plots of target / estimation

@@ -5,6 +5,7 @@ import torch
 from torch import nn
 import time
 import soundfile as sf
+from tqdm import tqdm
 
 from python.dataset.csr1_wjs0_dataset import speech_list
 from python.processing.stft import stft, istft
@@ -21,7 +22,8 @@ dataset_type = 'test'
 dataset_size = 'subset'
 #dataset_size = 'complete'
 
-#processed_data_dir = 'data/' + dataset_size + 'processed/'
+input_speech_dir = os.path.join('data',dataset_size,'raw/')
+#processed_data_dir = os.path.joint('data',dataset_size,'processed/')
 
 cuda = torch.cuda.is_available()
 eps = np.finfo(float).eps # machine epsilon
@@ -38,7 +40,8 @@ dtype = 'complex64'
 
 
 ## Deep Generative Model
-model_name = 'dummy_M2_10_epoch_010_vloss_108.79.pt'
+#model_name = 'dummy_M2_10_epoch_010_vloss_108.79'
+model_name = 'dummy_M2_alpha_5.0_epoch_100_vloss_466.72'
 x_dim = 513 # frequency bins (spectrogram)
 y_dim = 513 # frequency bins (binary mask)
 z_dim = 128
@@ -60,7 +63,7 @@ burnin_WF = 75
 var_RW = 0.01
 
 # Output_data_dir
-output_data_dir = 'data/' + dataset_size + 'models/' + model_name + '/'
+output_data_dir = os.path.join('data', dataset_size, 'models', model_name + '/')
 
 
 def main():
@@ -73,10 +76,10 @@ def main():
     if torch.cuda.device_count() >= 1: print("Number GPUs: ", torch.cuda.device_count())
 
     #TODO: modify and just read stored .wav files
-    test_data = pickle.load(open('data/' + dataset_size + 'pickle/si_et_05_mixture-505.p', 'rb'))
+    test_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_et_05_mixture-505.p'), 'rb'))
 
     model = DeepGenerativeModel([x_dim, y_dim, z_dim, h_dim])
-    model.load_state_dict(torch.load('models/' + model_name))
+    model.load_state_dict(torch.load(os.path.join('models', model_name + '.pt')))
     if cuda: model = model.cuda()
 
     model.eval()
@@ -90,7 +93,7 @@ def main():
     # s_hat_list = []
     # n_hat_list = []
 
-    for i, (x_t, file_path) in enumerate(zip(test_data, file_paths)):
+    for i, (x_t, file_path) in tqdm(enumerate(zip(test_data, file_paths))):
         
         print('File {}/{}'.format(i+1,len(test_data)), file=open('output.log','a'))
         # x = x/np.max(x)

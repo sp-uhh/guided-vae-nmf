@@ -1,6 +1,7 @@
 import numpy as np
 import soundfile as sf
 import os
+from tqdm import tqdm
 
 from python.dataset.csr1_wjs0_dataset import speech_list, noise_list, preprocess_noise, noise_segment, write_dataset, read_dataset
 # from python.processing.stft import stft
@@ -16,13 +17,13 @@ dataset_type = 'test'
 dataset_size = 'subset'
 #dataset_size = 'complete'
 
-input_speech_dir = 'data/' + dataset_type + '/raw/'
+input_speech_dir = os.path.join('data', dataset_size, 'raw/')
 
 input_noise_dir = 'data/complete/raw/qutnoise_databases/' # change the name of the subfolder in your computer
 output_noise_dir = 'data/complete/processed/qutnoise_databases/' # change the name of the subfolder in your computer
 
-output_wav_dir = 'data/' + dataset_type + 'processed/'
-output_pickle_dir = 'data/' + dataset_type + 'pickle/'
+output_wav_dir = os.path.join('data', dataset_size, 'processed/')
+output_pickle_dir = os.path.join('data', dataset_size, 'pickle/')
 
 ## STFT
 fs = int(16e3) # Sampling rate
@@ -52,7 +53,8 @@ def main():
     noise_audios = {}
 
     for key, noise_path in noise_paths.items():
-        output_noise_path = output_noise_dir + dataset_type + '/' + key + '.wav'
+        if dataset_type == 'test':
+            output_noise_path = output_noise_dir + 'si_et_05' + '/' + key + '.wav'
         
         #if noise already preprocessed, read files directly
         if os.path.exists(output_noise_path):
@@ -79,7 +81,7 @@ def main():
     noises = []
     all_snr_dB = []
 
-    for i, file_path in enumerate(file_paths):
+    for i, file_path in tqdm(enumerate(file_paths)):
 
         speech, fs_speech = sf.read(input_speech_dir + file_path, samplerate=None)
 

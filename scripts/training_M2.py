@@ -13,6 +13,9 @@ from python.models.utils import binary_cross_entropy, ikatura_saito_divergence
 from python.data import SpectrogramLabeledFrames
 
 # Settings
+## Dataset
+dataset_size = 'subset'
+#dataset_size = 'complete'
 
 cuda = torch.cuda.is_available()
 
@@ -24,7 +27,7 @@ z_dim = 128
 h_dim = [256, 128]
 
 ## Loss
-alpha = 0.1
+alpha = 5.0
 
 ## Training
 batch_size = 16
@@ -41,11 +44,11 @@ def main():
 
     # Load data
     print('Load data')
-    train_data = pickle.load(open('data/subset/pickle/si_tr_s_frames.p', 'rb'))
-    valid_data = pickle.load(open('data/subset/pickle/si_dt_05_frames.p', 'rb'))
+    train_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_tr_s_frames.p'), 'rb'))
+    valid_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_dt_05_frames.p'), 'rb'))
 
-    train_labels = pickle.load(open('data/subset/pickle/si_tr_s_labels.p', 'rb'))
-    valid_labels = pickle.load(open('data/subset/pickle/si_dt_05_labels.p', 'rb'))
+    train_labels = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_tr_s_labels.p'), 'rb'))
+    valid_labels = pickle.load(open('data', dataset_size, 'pickle/si_dt_05_labels.p'), 'rb'))
 
     # Dataset class
     train_dataset = SpectrogramLabeledFrames(train_data, train_labels)
@@ -75,7 +78,7 @@ def main():
     # Training
     for epoch in range(start_epoch, end_epoch):
         model.train()
-        total_loss, accuracy = (0, 0)
+        total_loss, total_elbo, total_classif_loss, total_f1_score = (0, 0, 0, 0)
 
         for batch_idx, (x, y) in enumerate(train_loader):
 
@@ -90,13 +93,13 @@ def main():
             y_hat = model.classify(x)
             y_seg = y_hat > 0.5
             # accuracy += F1_score(y, y_seg)
-            accuracy += f1_score(y.cpu().numpy(), y_seg.cpu().numpy(), average="samples")
+            total_f1_score += f1_score(y.cpu().numpy().flatten(), y_seg.cpu().numpy().flatten(), average="binary")
             
             # Regular cross entropy
             classication_loss = -torch.sum(y*torch.log(y_hat + 1e-8) + \
                                        (1.0-y)*torch.log(1.0 - y_hat + 1e-8), dim=1).mean()
 
-            J_alpha = L - alpha * classication_loss  # + U
+            J_alpha = L + alpha * classication_loss  # + U
 
             J_alpha.backward()
             optimizer.step()
@@ -104,6 +107,8 @@ def main():
 
             # J_alpha is a scalar, so J_alpha.data[0] does not work
             total_loss += J_alpha.item()
+            total_elbo += L.item()
+            total_classif_loss += classication_loss.item()
 
             # accuracy += torch.mean((torch.max(y_hat, 1)[1].data == torch.max(y, 1)[1].data).float())
 
@@ -113,9 +118,9 @@ def main():
             t = train_dataset.data.shape[1]
 
             print("Epoch: {}".format(epoch))
-            print("[Train]\t\t J_a: {:.2f}, accuracy: {:.2f}".format(total_loss / t, accuracy / t))
+            print("[Train]\t\t J_a: {:.2f}, ELBO: {:.2f}, classif. loss.: {:.2f}, F1-score: {:.3f}".format(total_loss / t, total_elbo/t, total_classif_loss/t, total_f1_score / t))
 
-            total_loss, accuracy = (0, 0)
+            total_loss, total_elbo, total_classif_loss, total_f1_score = (0, 0, 0, 0)
             for batch_idx, (x, y) in enumerate(valid_loader):
 
                 if cuda:
@@ -128,7 +133,7 @@ def main():
                 y_hat = model.classify(x)
                 y_seg = y_hat > 0.5
                 # accuracy += F1_score(y, y_seg)
-                accuracy += f1_score(y.cpu().numpy(), y_seg.cpu().numpy(), average="samples")
+                total_f1_score += f1_score(y.cpu().numpy().flatten(), y_seg.cpu().numpy().flatten(), average="binary")
 
 
                 classication_loss = -torch.sum(y*torch.log(y_hat + 1e-8) + \
@@ -138,6 +143,8 @@ def main():
 
                 # J_alpha is a scalar, so J_alpha.data[0] does not work
                 total_loss += J_alpha.item()
+                total_elbo += L.item()
+                total_classif_loss += classication_loss.item()
 
                 _, pred_idx = torch.max(y_hat, 1)
                 _, lab_idx = torch.max(y, 1)
@@ -145,11 +152,13 @@ def main():
                 # accuracy += torch.mean((torch.max(y_hat, 1)[1].data == torch.max(y, 1)[1].data).float())
 
             m = valid_dataset.data.shape[1]
-            print("[Validation]\t J_a: {:.2f}, accuracy: {:.2f}".format(total_loss / m, accuracy / m))
+            print("[Validation]\t J_a: {:.2f}, ELBO: {:.2f}, classif. loss.: {:.2f}, F1-score: {:.3f}".format(total_loss / m, total_elbo/m, total_classif_loss/m, total_f1_score / m))
 
     # Save model
-    torch.save(model.state_dict(), 'models/dummy_M2_10_epoch_{:03d}_vloss_{:.2f}.pt'.format(
-        end_epoch, total_loss / m))
+    torch.save(model.state_dict(), 'models/dummy_M2_alpha_{:.1f}_epoch_{:03d}_vloss_{:.2f}.pt'.format(
+        alpha,
+        end_epoch,
+        total_loss / m))
 
 if __name__ == '__main__':
     main()

@@ -49,7 +49,7 @@ def speech_list(input_speech_dir,
         data_dir += 'si_et_05/'
 
     # List of files
-    file_paths = glob(data_dir + '**/*.wav',recursive=True)
+    file_paths = sorted(glob(data_dir + '**/*.wav',recursive=True))
 
     # Remove input_speech_dir from file_paths
     file_paths = [os.path.relpath(path, input_speech_dir) for path in file_paths]
@@ -120,7 +120,7 @@ def preprocess_noise(noise_audio, key, fs_noise, fs):
 
     # Trim begin/end of noise car
     if key == 'car':
-        noise_audio_resamp = noise_audio_resamp[int(1.5*60*fs):int(43*60*fs)]
+        noise_audio_resamp = noise_audio_resamp[int(1.5*60*fs):int(43*60*fs)] # Extract part between 1.5min and 43min
 
     return noise_audio_resamp
 

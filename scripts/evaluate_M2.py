@@ -17,9 +17,11 @@ from python.models.models import DeepGenerativeModel
 
 # Settings
 dataset_type = 'test'
-input_speech_dir = 'data/subset/raw/'
-processed_data_dir = 'data/subset/processed/'
-#TODO: input from processed data
+
+dataset_size = 'subset'
+#dataset_size = 'complete'
+
+#processed_data_dir = 'data/' + dataset_size + 'processed/'
 
 cuda = torch.cuda.is_available()
 eps = np.finfo(float).eps # machine epsilon
@@ -58,7 +60,7 @@ burnin_WF = 75
 var_RW = 0.01
 
 # Output_data_dir
-output_data_dir = 'data/subset/models/' + model_name + '/'
+output_data_dir = 'data/' + dataset_size + 'models/' + model_name + '/'
 
 
 def main():
@@ -71,8 +73,7 @@ def main():
     if torch.cuda.device_count() >= 1: print("Number GPUs: ", torch.cuda.device_count())
 
     #TODO: modify and just read stored .wav files
-    if dataset_type:
-        test_data = pickle.load(open('data/subset/pickle/si_et_05_mixture-505.p', 'rb'))
+    test_data = pickle.load(open('data/' + dataset_size + 'pickle/si_et_05_mixture-505.p', 'rb'))
 
     model = DeepGenerativeModel([x_dim, y_dim, z_dim, h_dim])
     model.load_state_dict(torch.load('models/' + model_name))

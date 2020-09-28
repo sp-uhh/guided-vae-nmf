@@ -13,13 +13,16 @@ from python.utils import open_file
 ## Dataset
 dataset_type = 'test'
 
-input_speech_dir = 'data/subset/raw/'
+dataset_size = 'subset'
+#dataset_size = 'complete'
+
+input_speech_dir = 'data/' + dataset_type + '/raw/'
 
 input_noise_dir = 'data/complete/raw/qutnoise_databases/' # change the name of the subfolder in your computer
 output_noise_dir = 'data/complete/processed/qutnoise_databases/' # change the name of the subfolder in your computer
 
-output_wav_dir = 'data/subset/processed/'
-output_pickle_dir = 'data/subset/pickle/'
+output_wav_dir = 'data/' + dataset_type + 'processed/'
+output_pickle_dir = 'data/' + dataset_type + 'pickle/'
 
 ## STFT
 fs = int(16e3) # Sampling rate
@@ -105,12 +108,17 @@ def main():
         noise_power_target = speech_power*np.power(10,-snr_dB/10)
         k = noise_power_target / noise_power
         noise = noise * np.sqrt(k)
-        
+
+        # Normalize by max of speech, noise, speech+noise
+        norm = np.max(abs(np.concatenate([speech, noise, speech+noise])))
+        speech /= norm
+        noise /= norm
+        mixture = (speech+noise) / norm
+
         # Append processed audios
         speeches.append(speech) 
         noises.append(noise)
-        #mixtures.append((speech+noise)/np.max(speech+noise))
-        mixtures.append(speech+noise)
+        mixtures.append(mixture)
 
         # Save .wav files
         output_path = output_wav_dir + file_path

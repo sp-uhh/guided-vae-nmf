@@ -18,8 +18,11 @@ from sklearn.metrics import f1_score
 from python.visualization import display_multiple_signals
 
 # Settings
-input_speech_dir = 'data/subset/raw/'
-processed_data_dir = 'data/subset/processed/'
+dataset_size = 'subset'
+#dataset_size = 'complete'
+
+input_speech_dir = 'data/' + dataset_size + '/raw/' # To get file_paths
+processed_data_dir = 'data/' + dataset_size + '/processed/'
 dataset_type = 'test'
 
 
@@ -42,7 +45,7 @@ quantile_weight = 0.999
 
 ## Deep Generative Model
 model_name = 'dummy_M2_10_epoch_010_vloss_108.79.pt'
-model_data_dir = 'data/subset/models/' + model_name + '/'
+model_data_dir = 'data/' + dataset_size + '/models/' + model_name + '/'
 
 ## Plot spectrograms
 vmin = -40 # in dB

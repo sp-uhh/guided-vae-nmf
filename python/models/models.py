@@ -53,14 +53,14 @@ class Classifier(nn.Module):
         """
         super(Classifier, self).__init__()
         [x_dim, h_dim, y_dim] = dims
-        self.dense = nn.Linear(x_dim, h_dim)
-        self.logits = nn.Linear(h_dim, y_dim)
+        self.input_layer = nn.Linear(x_dim, h_dim)
+        self.output_layer = nn.Linear(h_dim, y_dim)
 
     def forward(self, x):
         #TODO: maybe modify activation functions?
-        x = F.relu(self.dense(x))
-        x = F.softmax(self.logits(x), dim=-1)
-        return x
+        h = F.relu(self.input_layer(x))
+        y = torch.sigmoid(self.output_layer(h))
+        return y
 
 
 class Encoder(nn.Module):
@@ -254,8 +254,8 @@ class DeepGenerativeModel(VariationalAutoencoder):
         return x_mu
 
     def classify(self, x):
-        logits = self.classifier(x)
-        return logits
+        y = self.classifier(x)
+        return y
 
     def sample(self, z, y):
         """

@@ -3,10 +3,8 @@ import soundfile as sf
 import os
 from tqdm import tqdm
 
-from python.dataset.csr1_wjs0_dataset import speech_list, noise_list, preprocess_noise, noise_segment, write_dataset, read_dataset
-# from python.processing.stft import stft
-# from python.processing.target import clean_speech_IBM
-
+from python.dataset.csr1_wjs0_dataset import speech_list, noise_list,\
+     preprocess_noise, noise_segment, write_dataset
 from python.utils import open_file
 
 

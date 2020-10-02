@@ -119,12 +119,12 @@ def main(alpha):
             #U = -elbo(x)
 
             # Add auxiliary classification loss q(y|x)
-            y_hat = model.classify(x)
+            y_hat_soft = model.classify(x)
 
             
-            # Regular cross entropy
-            classification_loss = -torch.sum(y*torch.log(y_hat + eps) + \
-                                       (1.0-y)*torch.log(1.0 - y_hat + eps), dim=1).mean()
+            # Binary cross entropy
+            classification_loss = binary_cross_entropy(r=y_hat_soft, x=y, eps=eps)
+            classification_loss = classification_loss.mean()
             # classification_loss = BCE(y_hat, y)
 
             J_alpha = L + alpha * classification_loss  # + U
@@ -141,10 +141,10 @@ def main(alpha):
             total_kl += kl.item()
             total_classif += alpha * classification_loss.item()
 
-            y_seg = (y_hat > 0.5).int()
+            y_hat_hard = (y_hat_soft > 0.5).int()
             #accuracy += F1_score(y, y_seg)
             #total_f1_score += f1_score(y.cpu().numpy().flatten(), y_seg.cpu().numpy().flatten(), average="binary")
-            f1_score = f1_loss(torch.flatten(y_seg), torch.flatten(y))
+            f1_score = f1_loss(torch.flatten(y_hat_hard), torch.flatten(y))
             total_f1_score += f1_score.item()
 
             # 
@@ -176,10 +176,11 @@ def main(alpha):
                 #U = -elbo(x)
 
                 # Add auxiliary classification loss q(y|x)
-                y_hat = model.classify(x)
+                y_hat_soft = model.classify(x)
 
-                classification_loss = -torch.sum(y*torch.log(y_hat + eps) + \
-                                       (1.0-y)*torch.log(1.0 - y_hat + eps), dim=1).mean()
+                # Binary cross entropy
+                classification_loss = binary_cross_entropy(r=y_hat_soft, x=y, eps=eps)
+                classification_loss = classification_loss.mean()
                 # classification_loss = BCE(y_hat, y)
 
                 J_alpha = L + alpha * classification_loss #+ U
@@ -192,10 +193,10 @@ def main(alpha):
                 total_kl += kl.item()
                 total_classif += alpha * classification_loss.item()
 
-                y_seg = (y_hat > 0.5).int()
+                y_hat_hard = (y_hat_soft > 0.5).int()
                 #accuracy += F1_score(y, y_seg)
                 #total_f1_score += f1_score(y.cpu().numpy().flatten(), y_seg.cpu().numpy().flatten(), average="binary")
-                f1_score = f1_loss(torch.flatten(y_seg), torch.flatten(y))
+                f1_score = f1_loss(torch.flatten(y_hat_hard), torch.flatten(y))
                 total_f1_score += f1_score.item()
 
                 # _, pred_idx = torch.max(y_hat, 1)

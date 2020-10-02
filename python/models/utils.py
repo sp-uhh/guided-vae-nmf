@@ -55,8 +55,8 @@ def log_sum_exp(tensor, dim=-1, sum_op=torch.sum):
     return torch.log(sum_op(torch.exp(tensor - max), dim=dim, keepdim=True) + 1e-8) + max
 
 
-def binary_cross_entropy(r, x):
-    return -torch.sum(x * torch.log(r + 1e-8) + (1 - x) * torch.log(1 - r + 1e-8), dim=-1)
+def binary_cross_entropy(r, x, eps):
+    return -torch.sum(x * torch.log(r + eps) + (1 - x) * torch.log(1 - r + eps), dim=-1)
 
 def ikatura_saito_divergence(r, x, eps):
     return torch.sum((x + eps)/(r + eps) - torch.log((x + eps)/(r+ eps)) - 1, dim=-1)

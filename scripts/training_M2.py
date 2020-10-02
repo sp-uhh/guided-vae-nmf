@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 from itertools import cycle
 import pickle
 import numpy as np
-from sklearn.metrics import f1_score
+#from sklearn.metrics import f1_score
 from tqdm import tqdm
 
 from python.models.models import DeepGenerativeModel
@@ -77,6 +77,14 @@ def main(alpha):
     model = DeepGenerativeModel([x_dim, y_dim, z_dim, h_dim])
     if cuda: model = model.to(device, non_blocking=non_blocking)
 
+    # Create model folder
+    model_dir = os.path.join('models', 'M2_alpha_{:.1f}_end_epoch_{:03d}'.format(alpha, end_epoch))
+    if not os.path.exists(model_dir):
+        os.makedirs(model_dir)
+
+    # Start log file
+    file = open(model_dir + '/' +'output.log','w') 
+
     # Optimizer settings
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.999))
 
@@ -98,7 +106,7 @@ def main(alpha):
     # Training
     for epoch in range(start_epoch, end_epoch):
         model.train()
-        total_loss, total_elbo, total_classif_loss, total_f1_score = (0, 0, 0, 0)
+        total_loss, total_elbo, total_likelihood, total_prior, total_kl, total_classif, total_f1_score = (0, 0, 0, 0, 0, 0, 0)
 
         for batch_idx, (x, y) in tqdm(enumerate(train_loader)):
 
@@ -106,7 +114,8 @@ def main(alpha):
                 # They need to be on the same device and be synchronized.
                 x, y = x.to(device, non_blocking=non_blocking), y.to(device, non_blocking=non_blocking)
 
-            L = -elbo(x, y)
+            #L = -elbo(x, y)
+            [L, likelihood, prior, kl] = elbo(x, y) # sign minus is inside elbo(x,y) now
             #U = -elbo(x)
 
             # Add auxiliary classification loss q(y|x)
@@ -127,12 +136,24 @@ def main(alpha):
             # # J_alpha is a scalar, so J_alpha.data[0] does not work
             total_loss += J_alpha.item()
             total_elbo += L.item()
-            total_classif_loss += alpha * classification_loss.item()
+            total_likelihood += likelihood.item()
+            total_prior += prior.item()
+            total_kl += kl.item()
+            total_classif += alpha * classification_loss.item()
 
             y_seg = (y_hat > 0.5).int()
             #accuracy += F1_score(y, y_seg)
             #total_f1_score += f1_score(y.cpu().numpy().flatten(), y_seg.cpu().numpy().flatten(), average="binary")
-            total_f1_score += f1_loss(torch.flatten(y_seg), torch.flatten(y)).item()
+            f1_score = f1_loss(torch.flatten(y_seg), torch.flatten(y))
+            total_f1_score += f1_score.item()
+
+            # 
+            if batch_idx % log_interval == 0:
+                print(('Train Epoch: {:2d}   [{:4d}/{:4d} ({:2d}%)]    '\
+                    'Loss: {:.3f}    ELBO: {:.3f}    Recon.: {:.3f}    prior: {:.3f}    KL: {:.3f}    classif.: {:.3f}    '\
+                    +'F1-score: {:.3f}').format(epoch, batch_idx*len(x), len(train_loader.dataset), int(100.*batch_idx/len(train_loader)),\
+                            J_alpha.item(), L.item(), likelihood.item(), prior.item(), kl.item(), alpha * classification_loss.item(), f1_score.item()), 
+                    file=open(model_dir + '/' + 'output.log','a'))
 
             #accuracy += torch.mean((torch.max(y_hat, 1)[1].data == torch.max(y, 1)[1].data).float())
 
@@ -140,16 +161,18 @@ def main(alpha):
             model.eval()
             
             print("Epoch: {}".format(epoch))
-            print("[Train]\t\t J_a: {:.2f}, ELBO: {:.2f}, classif. loss.: {:.2f}, F1-score: {:.3f}".format(total_loss / t, total_elbo/t, total_classif_loss/t, total_f1_score / t))
+            print("[Train]\t\t Loss: {:.2f}, ELBO: {:.2f}, Recon.: {:.2f}, prior: {:.2f}, KL: {:.2f} classif..: {:.2f}, "\
+                "F1-score: {:.3f}".format(total_loss / t, total_elbo/t, total_likelihood/t, total_prior/t, total_kl/t, total_classif/t, total_f1_score/t))
 
-            total_loss, total_elbo, total_classif_loss, total_f1_score = (0, 0, 0, 0)
+            total_loss, total_elbo, total_likelihood, total_prior, total_kl, total_classif, total_f1_score = (0, 0, 0, 0, 0, 0, 0)
             for batch_idx, (x, y) in tqdm(enumerate(valid_loader)):
 
                 if cuda:
                     x, y = x.cuda(device=device, non_blocking=non_blocking), y.cuda(device=device, non_blocking=non_blocking)
                 
                 #TODO: 1st classify, then encode
-                L = -elbo(x, y)
+                #L = -elbo(x, y)
+                [L, likelihood, prior, kl] = elbo(x, y) # sign minus is inside elbo(x,y) now
                 #U = -elbo(x)
 
                 # Add auxiliary classification loss q(y|x)
@@ -164,25 +187,30 @@ def main(alpha):
                 # # J_alpha is a scalar, so J_alpha.data[0] does not work
                 total_loss += J_alpha.item()
                 total_elbo += L.item()
-                total_classif_loss += alpha * classification_loss.item()
+                total_likelihood += likelihood.item()
+                total_prior += prior.item()
+                total_kl += kl.item()
+                total_classif += alpha * classification_loss.item()
 
                 y_seg = (y_hat > 0.5).int()
                 #accuracy += F1_score(y, y_seg)
                 #total_f1_score += f1_score(y.cpu().numpy().flatten(), y_seg.cpu().numpy().flatten(), average="binary")
-                total_f1_score += f1_loss(torch.flatten(y_seg), torch.flatten(y)).item()
+                f1_score = f1_loss(torch.flatten(y_seg), torch.flatten(y))
+                total_f1_score += f1_score.item()
 
                 # _, pred_idx = torch.max(y_hat, 1)
                 # _, lab_idx = torch.max(y, 1)
 
                 # accuracy += torch.mean((torch.max(y_hat, 1)[1].data == torch.max(y, 1)[1].data).float())
 
-            print("[Validation]\t J_a: {:.2f}, ELBO: {:.2f}, classif. loss.: {:.2f}, F1-score: {:.3f}".format(total_loss / m, total_elbo/m, total_classif_loss/m, total_f1_score / m))
+            print("[Validation]\t Loss: {:.2f}, ELBO: {:.2f}, Recon.: {:.2f}, prior: {:.2f}, KL: {:.2f} classif..: {:.2f}, "\
+                "F1-score: {:.3f}".format(total_loss / m, total_elbo/m, total_likelihood/m, total_prior/m, total_kl/m, total_classif/m, total_f1_score/m))
 
-            # # Save model
-            # torch.save(model.state_dict(), 'models/M2_alpha_{:.1f}_epoch_{:03d}_vloss_{:.2f}.pt'.format(
-            #     alpha,
-            #     epoch,
-            #     total_loss / m))
+            # Save model
+            torch.save(model.state_dict(), model_dir + '/' + 'M2_alpha_{:.1f}_epoch_{:03d}_vloss_{:.2f}.pt'.format(
+                alpha,
+                epoch,
+                total_loss / m))
 
 if __name__ == '__main__':
     for alpha in alphas:

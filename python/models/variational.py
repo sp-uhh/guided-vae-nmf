@@ -104,7 +104,9 @@ class SVI(nn.Module):
         L = elbo
 
         if is_labelled:
-            return torch.mean(L)
+            #return torch.mean(L)
+            return [-torch.mean(L), -torch.mean(likelihood),\
+                 -torch.mean(prior), -torch.mean(self.model.kl_divergence)]
 
         logits = self.model.classify(x)
 

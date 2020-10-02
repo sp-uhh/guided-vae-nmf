@@ -2,6 +2,13 @@ import math
 import torch
 import torch.nn.functional as F
 
+def prior_categorical(batch_size, y_dim, device):
+    # Uniform prior over y
+    prior = torch.ones((batch_size, y_dim)).to(device)
+    prior = F.softmax(prior, dim=1)
+    prior.requires_grad = False
+    return prior
+
 
 def log_standard_gaussian(x):
     """
@@ -27,7 +34,7 @@ def log_gaussian(x, mu, log_var):
     return torch.sum(log_pdf, dim=-1)
 
 
-def log_standard_categorical(p):
+def log_standard_categorical(p, eps):
     """
     Calculates the cross entropy between a (one-hot) categorical vector
     and a standard (uniform) categorical distribution.
@@ -36,9 +43,12 @@ def log_standard_categorical(p):
     :return: H(p, u)
     """
     # Uniform prior over y
-    prior = F.softmax(torch.ones_like(p), dim=1)
+    prior = 0.5 * torch.ones_like(p).to(p.get_device())
+    #prior = F.softmax(prior, dim=1)
+    # prior = F.sigmoid(prior)
     prior.requires_grad = False
 
-    cross_entropy = -torch.sum(p * torch.log(prior + 1e-8), dim=1)
+    #cross_entropy = -torch.sum(p * torch.log(prior + 1e-8), dim=1)
+    cross_entropy = -torch.sum((p * torch.log(prior + eps) + (1-p) * torch.log(1 - prior + eps)), dim=1)
 
     return cross_entropy

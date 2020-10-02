@@ -1,3 +1,6 @@
+import sys
+sys.path.append('.')
+
 from python.dataset.csr1_wjs0_dataset import speech_list
 from python.processing.stft import stft
 from python.processing.target import clean_speech_IBM

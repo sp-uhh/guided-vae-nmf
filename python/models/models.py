@@ -5,7 +5,6 @@ import torch.nn.functional as F
 
 from python.models.distributions import log_gaussian, log_standard_gaussian
 
-
 class Stochastic(nn.Module):
     """
     Base stochastic layer that uses the reparametrization trick [Kingma 2013]
@@ -15,7 +14,7 @@ class Stochastic(nn.Module):
         epsilon = torch.randn(mu.size(), requires_grad=False)
 
         if mu.is_cuda:
-            epsilon = epsilon.cuda()
+            epsilon = epsilon.to(mu.get_device(), non_blocking=True)
 
         # log_std = 0.5 * log_var
         # std = exp(log_std)
@@ -87,7 +86,8 @@ class Encoder(nn.Module):
     def forward(self, x):
         for layer in self.hidden:
             #x = F.relu(layer(x))
-            x = F.tanh(layer(x))
+            #x = F.tanh(layer(x))
+            x = torch.tanh(layer(x))
         return self.sample(x)
 
 
@@ -119,7 +119,8 @@ class Decoder(nn.Module):
     def forward(self, x):
         for layer in self.hidden:
             #x = F.relu(layer(x))
-            x = F.tanh(layer(x))
+            #x = F.tanh(layer(x))
+            x = torch.tanh(layer(x))
         #return self.output_activation(self.reconstruction(x))
         return torch.exp(self.reconstruction(x))
 

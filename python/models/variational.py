@@ -53,7 +53,7 @@ class SVI(nn.Module):
     Stochastic variational inference (SVI).
     """
     base_sampler = ImportanceWeightedSampler(mc=1, iw=1)
-    def __init__(self, model, likelihood=F.binary_cross_entropy, beta=repeat(1), sampler=base_sampler):
+    def __init__(self, model, likelihood=F.binary_cross_entropy, beta=repeat(1), sampler=base_sampler, eps=1e-8):
         """
         Initialises a new SVI optimizer for semi-supervised learning.
 
@@ -65,8 +65,9 @@ class SVI(nn.Module):
         super(SVI, self).__init__()
         self.model = model
         self.likelihood = likelihood
-        self.sampler = sampler
         self.beta = beta
+        self.sampler = sampler
+        self.eps = eps
 
     def forward(self, x, y=None):
         is_labelled = False if y is None else True
@@ -79,29 +80,28 @@ class SVI(nn.Module):
             ys = enumerate_discrete(xs, self.model.y_dim)
             xs = xs.repeat(self.model.y_dim, 1)
 
-        # Increase sampling dimension
-        xs = self.sampler.resample(xs)
-        ys = self.sampler.resample(ys)
+        # # Increase sampling dimension
+        # xs = self.sampler.resample(xs)
+        # ys = self.sampler.resample(ys)
 
         reconstruction = self.model(xs, ys)
 
         # p(x|y,z)
-        #TODO: NaN problem here now
-        #TODO: likelihood should probably not be binary cross entropy
-        likelihood = -self.likelihood(reconstruction, xs)
+        likelihood = -self.likelihood(reconstruction, xs, self.eps)
 
         # p(y)
-        #TODO: don't what this corresponds to. Likelihood of the labels?
-        prior = -log_standard_categorical(ys)
+        # not needed if y follow binary distribution
+        prior = -log_standard_categorical(ys, self.eps)
 
         # Equivalent to -L(x, y)
         #TODO: what is the beta (repeat)?
-        #TODO: why is the KL divergence subtracted?
-        elbo = likelihood + prior - next(self.beta) * self.model.kl_divergence
+        #elbo = likelihood + prior - next(self.beta) * self.model.kl_divergence
+        elbo = likelihood + prior - self.model.kl_divergence
+        # elbo = likelihood - self.model.kl_divergence
 
         
-        #TODO: is the sampler corresponding to the distribution?
-        L = self.sampler(elbo)
+        # L = self.sampler(elbo)
+        L = elbo
 
         if is_labelled:
             return torch.mean(L)
@@ -117,3 +117,4 @@ class SVI(nn.Module):
         # Equivalent to -U(x)
         U = L + H
         return torch.mean(U)
+

@@ -1,3 +1,6 @@
+import sys
+sys.path.append('.')
+
 import numpy as np
 import soundfile as sf
 import os
@@ -13,8 +16,8 @@ from python.utils import open_file
 ## Dataset
 dataset_types = ['train', 'validation']
 
-dataset_size = 'subset'
-#dataset_size = 'complete'
+#dataset_size = 'subset'
+dataset_size = 'complete'
 
 input_speech_dir = os.path.join('data', dataset_size, 'raw/')
 
@@ -71,17 +74,17 @@ def main():
                                     quantile_fraction=quantile_fraction,
                                     quantile_weight=quantile_weight)
             
-            spectrograms.append(np.power(abs(speech_tf), 2))
+            # spectrograms.append(np.power(abs(speech_tf), 2))
             labels.append(speech_ibm)
         
-        spectrograms = np.concatenate(spectrograms, axis=1)
+        # spectrograms = np.concatenate(spectrograms, axis=1)
         labels = np.concatenate(labels, axis=1)
         
-        # write spectrograms
-        write_dataset(spectrograms,
-                    output_data_dir=output_pickle_dir,
-                    dataset_type=dataset_type,
-                    suffix='frames')
+        # # write spectrograms
+        # write_dataset(spectrograms,
+        #             output_data_dir=output_pickle_dir,
+        #             dataset_type=dataset_type,
+        #             suffix='frames')
         
         # write spectrograms
         write_dataset(labels,
@@ -89,7 +92,7 @@ def main():
                     dataset_type=dataset_type,
                     suffix='labels')
 
-        open_file(output_pickle_dir)
+        #open_file(output_pickle_dir)
 
 if __name__ == '__main__':
     main()

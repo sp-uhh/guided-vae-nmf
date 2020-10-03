@@ -61,7 +61,7 @@ def binary_cross_entropy(r, x, eps):
 def ikatura_saito_divergence(r, x, eps):
     return torch.sum((x + eps)/(r + eps) - torch.log((x + eps)/(r+ eps)) - 1, dim=-1)
 
-def f1_loss(y_hat:torch.Tensor, y:torch.Tensor, is_training=False) -> torch.Tensor:
+def f1_loss(y_hat_hard:torch.Tensor, y:torch.Tensor, epsilon=1e-8) -> torch.Tensor:
     '''Calculate F1 score. Can work with gpu tensors
     
     The original implmentation is written by Michal Haltuf on Kaggle.
@@ -78,7 +78,7 @@ def f1_loss(y_hat:torch.Tensor, y:torch.Tensor, is_training=False) -> torch.Tens
     - https://discuss.pytorch.org/t/calculating-precision-recall-and-f1-score-in-case-of-multi-label-classification/28265/6
     
     '''
-    y_pred = y_hat.detach()
+    y_pred = y_hat_hard.detach()
     y_true = y.detach()
 
     assert y_true.ndim == 1
@@ -93,11 +93,9 @@ def f1_loss(y_hat:torch.Tensor, y:torch.Tensor, is_training=False) -> torch.Tens
     fp = ((1 - y_true) * y_pred).sum().to(torch.float32)
     fn = (y_true * (1 - y_pred)).sum().to(torch.float32)
     
-    epsilon = 1e-7
-    
     precision = tp / (tp + fp + epsilon)
     recall = tp / (tp + fn + epsilon)
     
     f1 = 2* (precision*recall) / (precision + recall + epsilon)
     #f1.requires_grad = is_training
-    return f1
+    return f1, tp, tn, fp, fn

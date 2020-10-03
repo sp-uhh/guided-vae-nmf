@@ -20,15 +20,15 @@ from python.data import SpectrogramLabeledFrames
 
 # Settings
 ## Dataset
-dataset_size = 'subset'
-#dataset_size = 'complete'
+#dataset_size = 'subset'
+dataset_size = 'complete'
 
 # eps to fix (not necessarily 1e-8)
 eps = 1e-8
 
 cuda = torch.cuda.is_available()
-num_workers = 0
-device = torch.device("cuda:1" if cuda else "cpu")
+num_workers = 4
+device = torch.device("cuda:2" if cuda else "cpu")
 pin_memory = True
 non_blocking = True
 
@@ -40,10 +40,10 @@ z_dim = 128
 h_dim = [256, 128]
 
 ## Loss
-alphas = [1.]
+alphas = [0.1]
 
 ## Training
-batch_size = 16
+batch_size = 128
 learning_rate = 1e-3
 log_interval = 1
 start_epoch = 1
@@ -83,7 +83,8 @@ def main(alpha):
         os.makedirs(model_dir)
 
     # Start log file
-    file = open(model_dir + '/' +'output.log','w') 
+    file = open(model_dir + '/' +'output_batch.log','w') 
+    file = open(model_dir + '/' +'output_epoch.log','w') 
 
     # Optimizer settings
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.999))
@@ -92,22 +93,20 @@ def main(alpha):
     # on the log-likelihood.
     sampler = ImportanceWeightedSampler(mc=1, iw=1)
 
-    # # Uniform prior over y
-    # prior = prior_categorical(batch_size=batch_size, y_dim=y_dim, device=device)
-
     #elbo = SVI(model, likelihood=binary_cross_entropy, sampler=sampler)
     elbo = SVI(model=model, likelihood=ikatura_saito_divergence, sampler=sampler, eps=eps)
 
-    #BCE = nn.BCELoss()
-
-    t = train_dataset.data.shape[1]
-    m = valid_dataset.data.shape[1]
+    t = len(train_loader)
+    m = len(valid_loader)
 
     # Training
     for epoch in range(start_epoch, end_epoch):
+        
         model.train()
-        total_loss, total_elbo, total_likelihood, total_prior, total_kl, total_classif, total_f1_score = (0, 0, 0, 0, 0, 0, 0)
-
+        
+        total_loss, total_elbo, total_likelihood, total_prior, total_kl, total_classif = (0, 0, 0, 0, 0, 0)
+        total_tp, total_tn, total_fp, total_fn = (0, 0, 0, 0)
+        
         for batch_idx, (x, y) in tqdm(enumerate(train_loader)):
 
             if cuda:
@@ -144,27 +143,41 @@ def main(alpha):
             y_hat_hard = (y_hat_soft > 0.5).int()
             #accuracy += F1_score(y, y_seg)
             #total_f1_score += f1_score(y.cpu().numpy().flatten(), y_seg.cpu().numpy().flatten(), average="binary")
-            f1_score = f1_loss(torch.flatten(y_hat_hard), torch.flatten(y))
-            total_f1_score += f1_score.item()
+            f1_score, tp, tn, fp, fn = f1_loss(y_hat_hard=torch.flatten(y_hat_hard), y=torch.flatten(y), epsilon=eps)
+            total_tp += tp.item()
+            total_tn += tn.item()
+            total_fp += fp.item()
+            total_fn += fn.item()
 
-            # 
+            # Save to log
             if batch_idx % log_interval == 0:
                 print(('Train Epoch: {:2d}   [{:4d}/{:4d} ({:2d}%)]    '\
                     'Loss: {:.3f}    ELBO: {:.3f}    Recon.: {:.3f}    prior: {:.3f}    KL: {:.3f}    classif.: {:.3f}    '\
                     +'F1-score: {:.3f}').format(epoch, batch_idx*len(x), len(train_loader.dataset), int(100.*batch_idx/len(train_loader)),\
                             J_alpha.item(), L.item(), likelihood.item(), prior.item(), kl.item(), alpha * classification_loss.item(), f1_score.item()), 
-                    file=open(model_dir + '/' + 'output.log','a'))
+                    file=open(model_dir + '/' + 'output_batch.log','a'))
 
             #accuracy += torch.mean((torch.max(y_hat, 1)[1].data == torch.max(y, 1)[1].data).float())
+        total_precision = total_tp / (total_tp + total_fp + eps)
+        total_recall = total_tp / (total_tp + total_fn + eps)
+    
+        total_f1_score = 2 * (total_precision * total_recall) / (total_precision + total_recall + eps)
 
         if epoch % 1 == 0:
             model.eval()
             
             print("Epoch: {}".format(epoch))
             print("[Train]\t\t Loss: {:.2f}, ELBO: {:.2f}, Recon.: {:.2f}, prior: {:.2f}, KL: {:.2f} classif..: {:.2f}, "\
-                "F1-score: {:.3f}".format(total_loss / t, total_elbo/t, total_likelihood/t, total_prior/t, total_kl/t, total_classif/t, total_f1_score/t))
+                "F1-score: {:.3f}".format(total_loss / t, total_elbo / t, total_likelihood / t, total_prior / t, total_kl / t, total_classif / t, total_f1_score))
+
+            print(("Epoch: {}".format(epoch)), file=open(model_dir + '/' + 'output_epoch.log','a'))
+            print(("[Train]\t\t Loss: {:.2f}, ELBO: {:.2f}, Recon.: {:.2f}, prior: {:.2f}, KL: {:.2f} classif..: {:.2f}, "\
+                "F1-score: {:.3f}".format(total_loss / t, total_elbo / t, total_likelihood / t, total_prior / t, total_kl / t, total_classif / t, total_f1_score)),
+                file=open(model_dir + '/' + 'output_epoch.log','a'))
 
             total_loss, total_elbo, total_likelihood, total_prior, total_kl, total_classif, total_f1_score = (0, 0, 0, 0, 0, 0, 0)
+            total_tp, total_tn, total_fp, total_fn = (0, 0, 0, 0)
+
             for batch_idx, (x, y) in tqdm(enumerate(valid_loader)):
 
                 if cuda:
@@ -196,16 +209,28 @@ def main(alpha):
                 y_hat_hard = (y_hat_soft > 0.5).int()
                 #accuracy += F1_score(y, y_seg)
                 #total_f1_score += f1_score(y.cpu().numpy().flatten(), y_seg.cpu().numpy().flatten(), average="binary")
-                f1_score = f1_loss(torch.flatten(y_hat_hard), torch.flatten(y))
-                total_f1_score += f1_score.item()
+                f1_score, tp, tn, fp, fn = f1_loss(y_hat_hard=torch.flatten(y_hat_hard), y=torch.flatten(y), epsilon=eps)
+
+                total_tp += tp.item()
+                total_tn += tn.item()
+                total_fp += fp.item()
+                total_fn += fn.item()
 
                 # _, pred_idx = torch.max(y_hat, 1)
                 # _, lab_idx = torch.max(y, 1)
 
                 # accuracy += torch.mean((torch.max(y_hat, 1)[1].data == torch.max(y, 1)[1].data).float())
+            total_precision = total_tp / (total_tp + total_fp + eps)
+            total_recall = total_tp / (total_tp + total_fn + eps)
+        
+            total_f1_score = 2 * (total_precision * total_recall) / (total_precision + total_recall + eps)
 
             print("[Validation]\t Loss: {:.2f}, ELBO: {:.2f}, Recon.: {:.2f}, prior: {:.2f}, KL: {:.2f} classif..: {:.2f}, "\
-                "F1-score: {:.3f}".format(total_loss / m, total_elbo/m, total_likelihood/m, total_prior/m, total_kl/m, total_classif/m, total_f1_score/m))
+                "F1-score: {:.3f}".format(total_loss / m, total_elbo / m, total_likelihood / m, total_prior / m, total_kl / m, total_classif / m, total_f1_score))
+
+            print(("[Validation]\t Loss: {:.2f}, ELBO: {:.2f}, Recon.: {:.2f}, prior: {:.2f}, KL: {:.2f} classif..: {:.2f}, "\
+                "F1-score: {:.3f}".format(total_loss / m, total_elbo / m, total_likelihood / m, total_prior / m, total_kl / m, total_classif / m, total_f1_score)),
+                file=open(model_dir + '/' + 'output_epoch.log','a'))
 
             # Save model
             torch.save(model.state_dict(), model_dir + '/' + 'M2_alpha_{:.1f}_epoch_{:03d}_vloss_{:.2f}.pt'.format(

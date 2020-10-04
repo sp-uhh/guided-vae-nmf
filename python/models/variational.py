@@ -120,3 +120,46 @@ class SVI(nn.Module):
         U = L + H
         return torch.mean(U)
 
+class SVI_M1(nn.Module):
+    """
+    Stochastic variational inference (SVI) for model M1.
+    """
+    base_sampler = ImportanceWeightedSampler(mc=1, iw=1)
+    def __init__(self, model, likelihood=F.binary_cross_entropy, beta=repeat(1), sampler=base_sampler, eps=1e-8):
+        """
+        Initialises a new SVI optimizer for semi-supervised learning.
+
+        :param model: semi-supervised model to evaluate
+        :param likelihood: p(x|y,z) for example BCE or MSE
+        :param sampler: sampler for x and y, e.g. for Monte Carlo
+        :param beta: warm-up/scaling of KL-term
+        """
+        super(SVI_M1, self).__init__()
+        self.model = model
+        self.likelihood = likelihood
+        self.beta = beta
+        self.sampler = sampler
+        self.eps = eps
+
+    def forward(self, x):
+
+        # Prepare for sampling
+        xs = x
+
+        # # Increase sampling dimension
+        # xs = self.sampler.resample(xs)
+        # ys = self.sampler.resample(ys)
+
+        reconstruction = self.model(xs)
+
+        # p(x|y,z)
+        likelihood = -self.likelihood(reconstruction, xs, self.eps)
+
+        # Equivalent to -L(x, y)
+        elbo = likelihood - self.model.kl_divergence
+        
+        # L = self.sampler(elbo)
+        L = elbo
+
+        return [-torch.mean(L), -torch.mean(likelihood), -torch.mean(self.model.kl_divergence)]
+

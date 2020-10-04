@@ -158,7 +158,7 @@ class EM:
         return cost
 
 
-class MCEM(EM):
+class MCEM_M2(EM):
     
     def __init__(self, X, W, H, g, Z, y, vae, niter, device, nsamples_E_step=10, 
                  burnin_E_step=30, nsamples_WF=25, burnin_WF=75, var_RW=0.01):
@@ -303,6 +303,155 @@ class MCEM(EM):
             # compute variances
             #self.compute_Vs(Z_t)
             self.compute_Vs(Z_y_t) 
+            self.compute_Vs_scaled()
+            self.compute_Vx()
+        
+        #WFs = np.mean(self.Vs_scaled/self.Vx, axis=0)
+        WFs = torch.mean(self.Vs_scaled/self.Vx, axis=0)
+        #WFn = np.mean(self.Vb/self.Vx, axis=0)
+        WFn = torch.mean(self.Vb/self.Vx, axis=0)
+
+        return WFs, WFn
+
+
+class MCEM_M1(EM):
+    
+    def __init__(self, X, W, H, g, Z, vae, niter, device, nsamples_E_step=10, 
+                 burnin_E_step=30, nsamples_WF=25, burnin_WF=75, var_RW=0.01):
+        
+        super().__init__(X=X, W=W, H=H, g=g, vae=vae, niter=niter, 
+             device=device)
+
+        if type(vae).__name__ == 'RVAE':
+            raise NameError('MCEM algorithm only valid for FFNN VAE')
+        
+        self.Z = torch.t(Z) # Last draw of the latent variables, shape (L, N)
+        self.nsamples_E_step = nsamples_E_step
+        self.burnin_E_step = burnin_E_step
+        self.nsamples_WF = nsamples_WF
+        self.burnin_WF = burnin_WF
+        self.var_RW = var_RW        
+        
+        # mixture power spectrogram as tensor, shape (F, N)
+        #self.X_abs_2_t = self.np2tensor(self.X_abs_2).to(self.device) 
+        self.X_abs_2_t = self.X_abs_2.clone()
+
+        self.vae.eval() # vae in eval mode
+        
+        
+        
+    def sample_posterior(self, Z, y, nsamples=10, burnin=30):
+        # Metropolis-Hastings
+        
+        F, N = self.X.shape
+        
+        if hasattr(self.vae, 'latent_dim'):
+            L = self.vae.latent_dim
+        elif hasattr(self.vae, 'z_dim'):
+            L = self.vae.z_dim
+        
+        # random walk variance as tensor
+        #var_RM_t = torch.tensor(np.float32(self.var_RW))
+        var_RM_t = torch.tensor(np.float32(self.var_RW)).to(self.device)
+        
+        # latent variables sampled from the posterior
+        Z_sampled_t = torch.zeros(N, nsamples, L).to(self.device)
+        #Z_sampled_y_t = torch.zeros(N, nsamples, L + F).to(self.device) # concat of Z_sampled_t and y
+        
+        # intial latent variables as tensor, shape (L, N)        
+        #Z_t = self.np2tensor(Z).to(self.device)        
+        Z_t = Z.clone()
+        # speech variances as tensor, shape (F, N)
+        Vs_t = torch.t(self.vae.decoder(torch.t(Z_t)))
+        # vector of gain parameters as tensor, shape (, N)
+        #g_t = self.np2tensor(self.g).to(self.device)
+        g_t = self.g.clone()
+        # noise variances as tensor, shape (F, N)
+        #Vb_t = self.np2tensor(self.Vb).to(self.device)
+        Vb_t = self.Vb.clone()
+        # likelihood variances as tensor, shape (F, N)
+        Vx_t = g_t*Vs_t + Vb_t
+        
+        cpt = 0
+        averaged_acc_rate = 0
+        for m in np.arange(nsamples+burnin):
+            
+            # random walk over latent variables
+            Z_prime_t = Z_t + torch.sqrt(var_RM_t)*torch.randn(L, N, device=self.device)
+            
+            # compute associated speech variances
+            Vs_prime_t = torch.t(self.vae.decode(torch.t(Z_prime_t))) # (F, N)
+            Vs_prime_scaled_t = g_t*Vs_prime_t
+            Vx_prime_t = Vs_prime_scaled_t + Vb_t
+            
+            # compute log of acceptance probability
+            acc_prob = ( torch.sum(torch.log(Vx_t) - torch.log(Vx_prime_t) + 
+                                   (1/Vx_t - 1/Vx_prime_t)*self.X_abs_2_t, 0) + 
+                        .5*torch.sum( Z_t.pow(2) - Z_prime_t.pow(2), 0) )
+            
+            # accept/reject
+            is_acc = torch.log(torch.rand(N, device=self.device)) < acc_prob
+            
+            # averaged_acc_rate += ( torch.sum(is_acc).numpy()/
+            #                       np.prod(is_acc.shape)*100/(nsamples+burnin) )
+            
+            averaged_acc_rate += ( torch.sum(is_acc) /
+                                  torch.prod(is_acc.shape)*100/(nsamples+burnin) )
+
+            
+            Z_t[:,is_acc] = Z_prime_t[:,is_acc]
+            
+            # update variances
+            Vs_t = torch.t(self.vae.decoder(torch.t(Z_t)))
+            Vx_t = g_t*Vs_t + Vb_t
+            
+            if m > burnin - 1:
+                Z_sampled_t[:,cpt,:] = torch.t(Z_t)
+                cpt += 1
+        
+        print('averaged acceptance rate: %f' % (averaged_acc_rate.item()))
+        
+        return Z_sampled_t        
+        
+            
+    def compute_Vs(self, Z):
+        """ Z: tensor of shape (N, R, L) """
+        with torch.no_grad():  
+            Vs_t = self.vae.decoder(Z) # (N, R, F)
+        
+        if len(Vs_t.shape) == 2: 
+            # shape is (N, F) but we need (N, R, F)
+            Vs_t = Vs_t.unsqueeze(1) # add a dimension in axis 1
+    
+        #self.Vs = np.moveaxis(self.tensor2np(Vs_t), 0, -1)  # (R, F, N)        
+        self.Vs = Vs_t.unsqueeze(-1).transpose(-1, 0)[0] # Equivalent to np.moveaxis(Vs_t, 0, -1)
+
+    def E_step(self):
+        """
+        """
+
+        # sample from posterior
+        Z_t  = self.sample_posterior(self.Z, self.nsamples_E_step, 
+                                    self.burnin_E_step) # (N, R, L)
+        
+        # update last draw
+        #self.Z = self.tensor2np(torch.squeeze(Z_t[:,-1,:])).T
+        self.Z = torch.t(torch.squeeze(Z_t[:,-1,:]))
+        
+        # compute variances
+        self.compute_Vs(Z_t)  
+        self.compute_Vs_scaled()
+        self.compute_Vx()
+            
+    def compute_WF(self, sample=False):
+        
+        if sample:
+            # sample from posterior
+            Z_t = self.sample_posterior(self.Z, self.nsamples_WF, 
+                                        self.burnin_WF)
+            
+            # compute variances
+            self.compute_Vs(Z_t)
             self.compute_Vs_scaled()
             self.compute_Vx()
         

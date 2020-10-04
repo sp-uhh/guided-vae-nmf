@@ -18,19 +18,14 @@ from python.data import SpectrogramFrames
 
 # Settings
 ## Dataset
-<<<<<<< HEAD
 #dataset_size = 'subset'
 dataset_size = 'complete'
-=======
-dataset_size = 'subset'
-#dataset_size = 'complete'
->>>>>>> 1a5408bb55b684c4142a1721a17eb972c226ab52
 
 # eps to fix (not necessarily 1e-8)
 eps = 1e-8
 
 cuda = torch.cuda.is_available()
-num_workers = 0
+num_workers = 4
 device = torch.device("cuda:0" if cuda else "cpu")
 pin_memory = True
 non_blocking = True
@@ -40,12 +35,6 @@ x_dim = 513 # frequency bins (spectrogram)
 z_dim = 128
 h_dim = [256, 128]
 
-<<<<<<< HEAD
-=======
-## Loss
-alphas = [0.1]
-
->>>>>>> 1a5408bb55b684c4142a1721a17eb972c226ab52
 ## Training
 batch_size = 128
 learning_rate = 1e-3
@@ -163,12 +152,12 @@ def main():
                 # _, lab_idx = torch.max(y, 1)
 
                 # accuracy += torch.mean((torch.max(y_hat, 1)[1].data == torch.max(y, 1)[1].data).float())
-
+    
             print("[Validation]\t ELBO: {:.2f}, Recon.: {:.2f}, KL: {:.2f}"\
-                "".format(total_elbo / t, total_likelihood / t, total_kl / t))
+                "".format(total_elbo / m, total_likelihood / m, total_kl / m))
 
             print(("[Validation]\t ELBO: {:.2f}, Recon.: {:.2f}, KL: {:.2f}"\
-                "".format(total_elbo / t, total_likelihood / t, total_kl / t)),
+                "".format(total_elbo / m, total_likelihood / m, total_kl / m)),
                 file=open(model_dir + '/' + 'output_epoch.log','a'))
 
             # Save model

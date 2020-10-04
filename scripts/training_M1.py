@@ -18,8 +18,13 @@ from python.data import SpectrogramFrames
 
 # Settings
 ## Dataset
+<<<<<<< HEAD
 #dataset_size = 'subset'
 dataset_size = 'complete'
+=======
+dataset_size = 'subset'
+#dataset_size = 'complete'
+>>>>>>> 1a5408bb55b684c4142a1721a17eb972c226ab52
 
 # eps to fix (not necessarily 1e-8)
 eps = 1e-8
@@ -35,6 +40,12 @@ x_dim = 513 # frequency bins (spectrogram)
 z_dim = 128
 h_dim = [256, 128]
 
+<<<<<<< HEAD
+=======
+## Loss
+alphas = [0.1]
+
+>>>>>>> 1a5408bb55b684c4142a1721a17eb972c226ab52
 ## Training
 batch_size = 128
 learning_rate = 1e-3

@@ -226,7 +226,7 @@ class MCEM_M2(EM):
             Z_prime_t = Z_t + torch.sqrt(var_RM_t)*torch.randn(L, N, device=self.device)
             
             # compute associated speech variances
-            #Vs_prime_t = torch.t(self.vae.decode(torch.t(Z_prime_t))) # (F, N)
+            #Vs_prime_t = torch.t(self.vae.decoder(torch.t(Z_prime_t))) # (F, N)
             Vs_prime_t = torch.t(self.vae.decoder(torch.t(torch.cat([Z_prime_t, y], dim=0))))
             Vs_prime_scaled_t = g_t*Vs_prime_t
             Vx_prime_t = Vs_prime_scaled_t + Vb_t
@@ -242,8 +242,8 @@ class MCEM_M2(EM):
             # averaged_acc_rate += ( torch.sum(is_acc).numpy()/
             #                       np.prod(is_acc.shape)*100/(nsamples+burnin) )
             
-            averaged_acc_rate += ( torch.sum(is_acc).to('cpu').numpy() /
-                                  np.prod(is_acc.shape)*100/(nsamples+burnin) )
+            averaged_acc_rate += ( torch.sum(is_acc).float() /
+                                  is_acc.shape.numel()*100/(nsamples+burnin) )
 
             
             Z_t[:,is_acc] = Z_prime_t[:,is_acc]
@@ -258,7 +258,7 @@ class MCEM_M2(EM):
                 Z_sampled_y_t[:,cpt,:] = torch.t(torch.cat([Z_t, y], dim=0))
                 cpt += 1
         
-        print('averaged acceptance rate: %f' % (averaged_acc_rate))
+        print('averaged acceptance rate: %f' % (averaged_acc_rate.item()))
         
         return Z_sampled_t, Z_sampled_y_t        
         
@@ -380,7 +380,7 @@ class MCEM_M1(EM):
             Z_prime_t = Z_t + torch.sqrt(var_RM_t)*torch.randn(L, N, device=self.device)
             
             # compute associated speech variances
-            Vs_prime_t = torch.t(self.vae.decode(torch.t(Z_prime_t))) # (F, N)
+            Vs_prime_t = torch.t(self.vae.decoder(torch.t(Z_prime_t))) # (F, N)
             Vs_prime_scaled_t = g_t*Vs_prime_t
             Vx_prime_t = Vs_prime_scaled_t + Vb_t
             
@@ -395,8 +395,8 @@ class MCEM_M1(EM):
             # averaged_acc_rate += ( torch.sum(is_acc).numpy()/
             #                       np.prod(is_acc.shape)*100/(nsamples+burnin) )
             
-            averaged_acc_rate += ( torch.sum(is_acc) /
-                                  torch.prod(is_acc.shape)*100/(nsamples+burnin) )
+            averaged_acc_rate += ( torch.sum(is_acc).float() /
+                                  is_acc.shape.numel()*100/(nsamples+burnin) )
 
             
             Z_t[:,is_acc] = Z_prime_t[:,is_acc]

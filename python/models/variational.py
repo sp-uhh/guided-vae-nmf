@@ -106,7 +106,7 @@ class SVI(nn.Module):
         if is_labelled:
             #return torch.mean(L)
             return [-torch.mean(L), -torch.mean(likelihood),\
-                 -torch.mean(prior), -torch.mean(self.model.kl_divergence)]
+                 -torch.mean(prior), torch.mean(self.model.kl_divergence)]
 
         logits = self.model.classify(x)
 
@@ -161,5 +161,5 @@ class SVI_M1(nn.Module):
         # L = self.sampler(elbo)
         L = elbo
 
-        return [-torch.mean(L), -torch.mean(likelihood), -torch.mean(self.model.kl_divergence)]
+        return [-torch.mean(L), -torch.mean(likelihood), torch.mean(self.model.kl_divergence)]
 

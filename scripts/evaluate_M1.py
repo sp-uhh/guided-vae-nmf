@@ -42,18 +42,13 @@ dtype = 'complex64'
 
 
 ## Deep Generative Model
-model_name = 'dummy_M1_epoch_100_vloss_466.72'
+model_name = 'M1_end_epoch_050/M1_epoch_036_vloss_465.28'
 x_dim = 513 # frequency bins (spectrogram)
-y_dim = 513 # frequency bins (binary mask)
 z_dim = 128
 h_dim = [256, 128]
 
-## Monte-Carlo EM
-use_mcem_julius = False
-use_mcem_simon = True
-
 ### NMF parameters (noise model)
-nmf_rank = 8
+nmf_rank = 10
 
 ### MCEM settings
 niter = 100 # results reported in the paper were obtained with 500 iterations 
@@ -114,22 +109,9 @@ def main():
         
         # Power spectrogram (transpose)
         x = torch.tensor(np.power(np.abs(x_tf), 2)).to(device)
-        
-        # # Target
-        # s_t, fs_s = sf.read(processed_data_dir + os.path.splitext(file_path)[0] + '_s.wav') # clean speech
-        # s_tf = stft(s_t,
-        #          fs=fs,
-        #          wlen_sec=wlen_sec,
-        #          win=win,
-        #          hop_percent=hop_percent,
-        #          dtype=dtype) # shape = (freq_bins, frames)
-        # y_hat = clean_speech_IBM(s_tf,
-        #                      quantile_fraction=0.98,
-        #                      quantile_weight=0.999)
-        # y_hat = torch.from_numpy(y_hat.T).to(device)
 
         # Encode
-        Z_init, _, _ = model.encoder(x)
+        _, Z_init, _ = model.encoder(x)
 
         # MCEM
         # NMF parameters are initialized outside MCEM
@@ -138,7 +120,7 @@ def main():
         H_init = np.maximum(np.random.rand(nmf_rank, N), eps)
         g_init = torch.ones(N).to(device)
 
-        mcem = mcem_simon.MCEM(X=x_tf,
+        mcem = mcem_simon.MCEM_M1(X=x_tf,
                             W=W_init,
                             H=H_init,
                             g=g_init,
@@ -179,9 +161,6 @@ def main():
         
         sf.write(output_path + '_s_est.wav', s_hat, fs)
         sf.write(output_path + '_n_est.wav', n_hat, fs)
-        
-        # Save binary mask
-        torch.save(y_hat, output_path + '_ibm_est.pt')
 
     # pickle.dump(s_hat, open('../data/pickle/s_hat_vae', 'wb'), protocol=4)
     # pickle.dump(n_hat, open('../data/pickle/n_hat_vae', 'wb'), protocol=4)

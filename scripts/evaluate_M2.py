@@ -134,13 +134,13 @@ def main():
         # y_hat = torch.from_numpy(y_hat.T).to(device)
 
         # Encode
-        Z_init, _, _ = model.encoder(torch.cat([x, y_hat], dim=1))
+        _, Z_init, _ = model.encoder(torch.cat([x, y_hat], dim=1))
 
         # MCEM
         if use_mcem_julius and not use_mcem_simon:
 
             # NMF parameters are initialized inside MCEM
-            mcem = mcem_julius.MCEM(X=x_tf.T,
+            mcem = mcem_julius.MCEM_M2(X=x_tf.T,
                                     Z=Z_init.T,
                                     y=y_hat.T,
                                     model=model,

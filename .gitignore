@@ -16,6 +16,9 @@ setup.py
 # data
 data/complete/
 
+# models
+models/
+
 # Unused files
 *math_func.py
 unfinished_func.py

@@ -13,7 +13,7 @@ from tqdm import tqdm
 from python.dataset.csr1_wjs0_dataset import speech_list
 from python.processing.stft import stft, istft
 from python.processing.target import clean_speech_IBM
-from python.models import mcem_simon
+from python.models import mcem_simon, mcem_julius
 from python.models.models import VariationalAutoencoder
 #from utils import count_parameters
 
@@ -28,7 +28,7 @@ input_speech_dir = os.path.join('data',dataset_size,'raw/')
 #processed_data_dir = os.path.joint('data',dataset_size,'processed/')
 
 cuda = torch.cuda.is_available()
-eps = np.finfo(float).eps # machine epsilon
+eps = 1e-8
 
 
 # Parameters
@@ -42,10 +42,21 @@ dtype = 'complex64'
 
 
 ## Deep Generative Model
-model_name = 'M1_end_epoch_050/M1_epoch_036_vloss_465.28'
+# model_name = 'M1_end_epoch_050/M1_epoch_036_vloss_465.28'
+# model_name = 'M1_end_epoch_050/M1_epoch_025_vloss_476.34'
+# model_name = 'M1_end_epoch_050/M1_epoch_005_vloss_527.95'
+# x_dim = 513 # frequency bins (spectrogram)
+# z_dim = 128
+# h_dim = [256, 128]
+
+model_name = 'M1_h128_end_epoch_050/M1_epoch_044_vloss_486.29'
 x_dim = 513 # frequency bins (spectrogram)
 z_dim = 128
-h_dim = [256, 128]
+h_dim = [128]
+
+## Monte-Carlo EM
+use_mcem_julius = False
+use_mcem_simon = True
 
 ### NMF parameters (noise model)
 nmf_rank = 10
@@ -114,24 +125,50 @@ def main():
         _, Z_init, _ = model.encoder(x)
 
         # MCEM
-        # NMF parameters are initialized outside MCEM
-        N, F = x_tf.shape
-        W_init = np.maximum(np.random.rand(F,nmf_rank), eps)
-        H_init = np.maximum(np.random.rand(nmf_rank, N), eps)
-        g_init = torch.ones(N).to(device)
+        if use_mcem_julius and not use_mcem_simon:
 
-        mcem = mcem_simon.MCEM_M1(X=x_tf,
-                            W=W_init,
-                            H=H_init,
-                            g=g_init,
-                            Z=Z_init,
-                            vae=model, device=device, niter=niter,
-                            nsamples_E_step=nsamples_E_step,
-                            burnin_E_step=burnin_E_step, nsamples_WF=nsamples_WF, 
-                            burnin_WF=burnin_WF, var_RW=var_RW)
-        
-        #%% Run speech enhancement algorithm
-        cost = mcem.run()
+            # NMF parameters are initialized inside MCEM
+            mcem = mcem_julius.MCEM_M1(X=x_tf.T,
+                                    Z=Z_init.T,
+                                    model=model,
+                                    device=device,
+                                    niter_MCEM=niter,
+                                    niter_MH=nsamples_E_step+burnin_E_step,
+                                    burnin=burnin_E_step,
+                                    var_MH=var_RW,
+                                    NMF_rank=nmf_rank,
+                                    eps=eps)
+            
+            t0 = time.time()
+
+            mcem.run()
+            mcem.separate(niter_MH=nsamples_WF+burnin_WF, burnin=burnin_WF)
+
+            elapsed = time.time() - t0
+            print("elapsed time: %.4f s" % (elapsed))
+
+        elif not use_mcem_julius and use_mcem_simon:
+
+            # NMF parameters are initialized outside MCEM
+            N, F = x_tf.shape
+            W_init = np.maximum(np.random.rand(F,nmf_rank), eps)
+            H_init = np.maximum(np.random.rand(nmf_rank, N), eps)
+            g_init = torch.ones(N).to(device)
+
+            mcem = mcem_simon.MCEM_M1(X=x_tf,
+                                W=W_init,
+                                H=H_init,
+                                g=g_init,
+                                Z=Z_init,
+                                vae=model, device=device, niter=niter,
+                                nsamples_E_step=nsamples_E_step,
+                                burnin_E_step=burnin_E_step, nsamples_WF=nsamples_WF, 
+                                burnin_WF=burnin_WF, var_RW=var_RW)
+            
+            #%% Run speech enhancement algorithm
+            cost = mcem.run()
+        else:
+            ValueError('You must set use_mcem_julius OR use_mcem_simon to True.')
 
         # Estimated sources
         S_hat = mcem.S_hat #+ np.finfo(np.float32).eps

@@ -22,19 +22,21 @@ from sklearn.metrics import f1_score
 from python.visualization import display_multiple_signals
 
 # Settings
+dataset_type = 'test'
+
 dataset_size = 'subset'
 #dataset_size = 'complete'
 
-input_speech_dir = 'data/' + dataset_size + '/raw/' # To get file_paths
-processed_data_dir = 'data/' + dataset_size + '/processed/'
-dataset_type = 'test'
+input_speech_dir = os.path.join('data',dataset_size,'raw/')
+processed_data_dir = os.path.join('data',dataset_size,'processed/')
 
 
-eps = np.finfo(float).eps # machine epsilon
+#eps = np.finfo(float).eps # machine epsilon
+eps = 1e-8
 
 # Parameters
-## Silence removal
-top_db = 40
+# ## Silence removal
+# top_db = 40
 
 ## STFT
 fs = int(16e3) # Sampling rate
@@ -113,7 +115,7 @@ def main():
         y_hat = torch.load(model_data_dir + os.path.splitext(file_path)[0] + '_ibm_est.pt') # shape = (frames, freq_bins)
         y_seg = torch.t(y_hat > 0.5).cpu().numpy() # Transpose to match target y, shape = (freq_bins, frames)
 
-        # TF reprepsentation
+        # TF representation
         s_tf = stft(s_t,
                  fs=fs,
                  wlen_sec=wlen_sec,
@@ -129,7 +131,7 @@ def main():
         all_f1score.append(f1score_s_hat)
 
         # plots of target / estimation
-        # TF reprepsentation
+        # TF representation
         x_tf = stft(x_t,
                  fs=fs,
                  wlen_sec=wlen_sec,

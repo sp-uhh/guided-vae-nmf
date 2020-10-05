@@ -15,9 +15,7 @@ setup.py
 
 # data
 data/complete/
-
-# models
-models/
+data/subset/models/
 
 # Unused files
 *math_func.py

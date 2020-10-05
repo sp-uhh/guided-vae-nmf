@@ -55,7 +55,7 @@ use_mcem_julius = False
 use_mcem_simon = True
 
 ### NMF parameters (noise model)
-nmf_rank = 8
+nmf_rank = 10
 
 ### MCEM settings
 niter = 100 # results reported in the paper were obtained with 500 iterations 
@@ -167,7 +167,7 @@ def main():
             H_init = np.maximum(np.random.rand(nmf_rank, N), eps)
             g_init = torch.ones(N).to(device)
 
-            mcem = mcem_simon.MCEM(X=x_tf,
+            mcem = mcem_simon.MCEM_M2(X=x_tf,
                                 W=W_init,
                                 H=H_init,
                                 g=g_init,

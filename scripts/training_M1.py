@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 from python.models.models import VariationalAutoencoder
 from python.models.variational import SVI_M1, ImportanceWeightedSampler
-from python.models.utils import ikatura_saito_divergence
+from python.models.utils import ikatura_saito_divergence, kl_divergence
 
 from python.data import SpectrogramFrames
 
@@ -25,22 +25,22 @@ dataset_size = 'complete'
 eps = 1e-8
 
 cuda = torch.cuda.is_available()
-num_workers = 4
-device = torch.device("cuda:0" if cuda else "cpu")
+num_workers = 8
+device = torch.device("cuda:1" if cuda else "cpu")
 pin_memory = True
 non_blocking = True
 
 ## Deep Generative Model
 x_dim = 513 # frequency bins (spectrogram)
-z_dim = 128
-h_dim = [256, 128]
+z_dim = 32
+h_dim = [128]
 
 ## Training
 batch_size = 128
 learning_rate = 1e-3
 log_interval = 1
 start_epoch = 1
-end_epoch = 50
+end_epoch = 250
 
 # Load data
 print('Load data')
@@ -68,7 +68,7 @@ def main():
     if cuda: model = model.to(device, non_blocking=non_blocking)
 
     # Create model folder
-    model_dir = os.path.join('models', 'M1_end_epoch_{:03d}'.format(end_epoch))
+    model_dir = os.path.join('models', 'M1_KLv3_eps1e-8_h{:03d}_z{:03d}_end_epoch_{:03d}'.format(h_dim[0], z_dim, end_epoch))
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
 
@@ -83,7 +83,9 @@ def main():
     # on the log-likelihood.
     sampler = ImportanceWeightedSampler(mc=1, iw=1)
 
-    elbo = SVI_M1(model=model, likelihood=ikatura_saito_divergence, sampler=sampler, eps=eps)
+    #elbo = SVI_M1(model=model, likelihood=ikatura_saito_divergence, sampler=sampler, eps=eps)
+    elbo = SVI_M1(model=model, likelihood=kl_divergence, sampler=sampler, eps=eps)
+
 
     t = len(train_loader)
     m = len(valid_loader)

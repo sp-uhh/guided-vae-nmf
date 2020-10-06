@@ -144,6 +144,7 @@ class SVI_M1(nn.Module):
     def forward(self, x):
 
         # Prepare for sampling
+        #xs = torch.sqrt(x)
         xs = x
 
         # # Increase sampling dimension

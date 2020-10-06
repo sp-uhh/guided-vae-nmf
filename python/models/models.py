@@ -122,8 +122,9 @@ class Decoder(nn.Module):
             #x = F.tanh(layer(x))
             x = torch.tanh(layer(x))
         #return self.output_activation(self.reconstruction(x))
-        return torch.exp(self.reconstruction(x))
-
+        #return torch.exp(self.reconstruction(x))
+        #return torch.exp((1/2) * self.reconstruction(x))
+        return self.reconstruction(x)
 
 class VariationalAutoencoder(nn.Module):
     def __init__(self, dims):

@@ -49,10 +49,32 @@ dtype = 'complex64'
 # z_dim = 128
 # h_dim = [256, 128]
 
-model_name = 'M1_h128_end_epoch_050/M1_epoch_044_vloss_486.29'
+# model_name = 'M1_h128_end_epoch_050/M1_epoch_044_vloss_486.29'
+# x_dim = 513 # frequency bins (spectrogram)
+# z_dim = 128
+# h_dim = [128]
+
+# model_name = 'M1_h128_z16_end_epoch_250/M1_epoch_010_vloss_526.58'
+# x_dim = 513 # frequency bins (spectrogram)
+# z_dim = 16
+# h_dim = [128]
+
+# model_name = 'M1_h128_z032_end_epoch_250/M1_epoch_200_vloss_467.83'
+# x_dim = 513 # frequency bins (spectrogram)
+# z_dim = 32
+# h_dim = [128]
+
+# model_name = 'M1_ISv2_eps1e-5_h128_z032_end_epoch_250/M1_epoch_200_vloss_434.08'
+# x_dim = 513 # frequency bins (spectrogram)
+# z_dim = 32
+# h_dim = [128]
+# eps = 1e-5
+
+model_name = 'M1_ISv2_h128_z032_end_epoch_250/M1_epoch_200_vloss_467.95'
 x_dim = 513 # frequency bins (spectrogram)
-z_dim = 128
+z_dim = 32
 h_dim = [128]
+eps = 1e-8
 
 ## Monte-Carlo EM
 use_mcem_julius = False
@@ -86,7 +108,7 @@ def main():
     test_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_et_05_mixture-505.p'), 'rb'))
 
     model = VariationalAutoencoder([x_dim, z_dim, h_dim])
-    model.load_state_dict(torch.load(os.path.join('models', model_name + '.pt')))
+    model.load_state_dict(torch.load(os.path.join('models', model_name + '.pt'), map_location="cuda:0"))
     if cuda: model = model.cuda()
 
     model.eval()
@@ -151,9 +173,9 @@ def main():
 
             # NMF parameters are initialized outside MCEM
             N, F = x_tf.shape
-            W_init = np.maximum(np.random.rand(F,nmf_rank), eps)
-            H_init = np.maximum(np.random.rand(nmf_rank, N), eps)
-            g_init = torch.ones(N).to(device)
+            W_init = np.maximum(np.random.rand(F,nmf_rank), eps, dtype='float32')
+            H_init = np.maximum(np.random.rand(nmf_rank, N), eps, dtype='float32')
+            g_init = torch.ones(N).to(device) # float32 by default
 
             mcem = mcem_simon.MCEM_M1(X=x_tf,
                                 W=W_init,

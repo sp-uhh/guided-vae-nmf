@@ -7,6 +7,8 @@ import matplotlib.gridspec as grd
 
 def display_waveplot(x,
                      fs=16e3,
+                     ymax=1.,
+                     ymin=-1.,
                      xticks_sec=1.0,
                      fontsize=50):
     """
@@ -35,6 +37,7 @@ def display_waveplot(x,
     plt.xlabel('Time (s)', fontsize=fontsize+10) #, fontweight="bold")
     plt.xticks(np.arange(0, time_sec, step=xticks_sec), fontsize=fontsize)
     plt.yticks(fontsize=fontsize)
+    plt.ylim(ymin=ymin, ymax=ymax)
 
     return img
 
@@ -168,7 +171,7 @@ def display_wav_spectro_mask(x,
 
     # line plot
     ax = plt.subplot(gs[0])
-    display_waveplot(x, fs, xticks_sec, fontsize)
+    display_waveplot(x=x, fs=fs, xticks_sec=xticks_sec, fontsize=fontsize)
 
     # image plot
     ax = plt.subplot(gs[2])
@@ -229,7 +232,7 @@ def display_multiple_signals(signal_list,
 
         # line plot
         ax = plt.subplot(gs[3*i])
-        display_waveplot(x, fs, xticks_sec, fontsize)
+        display_waveplot(x=x, fs=fs, xticks_sec=xticks_sec, fontsize=fontsize)
 
         # image plot
         #ax = plt.subplot(gs[(i+2)])
@@ -298,7 +301,7 @@ def display_multiple_spectro(signal_list,
         if not (x is None):
             # line plot
             ax = plt.subplot(gs[3*i])
-            display_waveplot(x, fs, xticks_sec, fontsize)
+            display_waveplot(x=x, fs=fs, xticks_sec=xticks_sec, fontsize=fontsize)
 
         # image plot
         #ax = plt.subplot(gs[(i+2)])

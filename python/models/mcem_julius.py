@@ -12,14 +12,14 @@ class MCEM_M2:
         eps = np.finfo(float).eps
         self.K = NMF_rank
         np.random.seed(0)
-        self.W = np.array(np.maximum(np.random.rand(self.F,self.K), eps))
-        self.H = np.array(np.maximum(np.random.rand(self.K,self.T), eps))
+        self.W = np.array(np.maximum(np.random.rand(self.F,self.K), self.eps), dtype='float32')
+        self.H = np.array(np.maximum(np.random.rand(self.K,self.T), self.eps), dtype='float32')
         self.V = np.matmul(self.W,self.H) 
         self.Z = Z
         self.y = y
         self.D = self.Z.shape[0]
         self.model = model
-        self.g = np.ones((1,self.T)) 
+        self.g = np.ones((1,self.T), dtype='float32') 
         self.niter_MH = niter_MH 
         self.niter_MCEM = niter_MCEM
         self.burnin = burnin 
@@ -31,7 +31,7 @@ class MCEM_M2:
         Z_sampled = torch.zeros((self.D, self.T, niter_MH - burnin))
         cpt = 0
         for n in range(niter_MH):
-            Z_prime = self.Z + torch.tensor(self.var_MH)*torch.randn(self.D,self.T).to(self.device) 
+            Z_prime = self.Z + np.sqrt(self.var_MH)*torch.randn(self.D,self.T).to(self.device) 
  
             #S_hat_prime = self.model.decode(Z_prime).cpu().numpy()     
             S_hat_prime = self.model.decoder(torch.t(torch.cat([Z_prime, self.y],axis=0))).cpu().numpy().T
@@ -136,13 +136,13 @@ class MCEM_M1:
         self.eps = eps
         self.K = NMF_rank
         np.random.seed(0)
-        self.W = np.array(np.maximum(np.random.rand(self.F,self.K), self.eps))
-        self.H = np.array(np.maximum(np.random.rand(self.K,self.T), self.eps))
+        self.W = np.array(np.maximum(np.random.rand(self.F,self.K), self.eps), dtype='float32')
+        self.H = np.array(np.maximum(np.random.rand(self.K,self.T), self.eps), dtype='float32')
         self.V = np.matmul(self.W,self.H) 
         self.Z = Z
         self.D = self.Z.shape[0]
         self.model = model
-        self.g = np.ones((1,self.T)) 
+        self.g = np.ones((1,self.T), dtype='float32') 
         self.niter_MH = niter_MH 
         self.niter_MCEM = niter_MCEM
         self.burnin = burnin 
@@ -154,7 +154,8 @@ class MCEM_M1:
         Z_sampled = torch.zeros((self.D, self.T, niter_MH - burnin))
         cpt = 0
         for n in range(niter_MH):
-            Z_prime = self.Z + torch.tensor(self.var_MH)*torch.randn(self.D,self.T).to(self.device) 
+            #Z_prime = self.Z + torch.tensor(self.var_MH)*torch.randn(self.D,self.T).to(self.device) 
+            Z_prime = self.Z + np.sqrt(self.var_MH)*torch.randn(self.D,self.T).to(self.device) 
  
             S_hat_prime = self.model.decoder(torch.t(Z_prime)).cpu().numpy().T
     
@@ -164,7 +165,7 @@ class MCEM_M1:
                 + (1/(self.V + self.speech_var) - 1/(self.V + speech_var_prime))* np.abs(self.X)**2, axis=0)
                 + .5*np.sum(self.Z.cpu().numpy()**2 - Z_prime.cpu().numpy()**2, axis=0))
             
-            is_acc = np.log(np.random.rand(self.T)) < acc_prob
+            is_acc = np.log(np.random.rand(self.T).astype('float32')) < acc_prob
                         
             self.Z[:,is_acc] = Z_prime[:,is_acc]
             self.Z_mapped_decoder = self.model.decoder(torch.t(self.Z)).cpu().numpy().T

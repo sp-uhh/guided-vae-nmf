@@ -163,9 +163,9 @@ def main():
 
             # NMF parameters are initialized outside MCEM
             N, F = x_tf.shape
-            W_init = np.maximum(np.random.rand(F,nmf_rank), eps)
-            H_init = np.maximum(np.random.rand(nmf_rank, N), eps)
-            g_init = torch.ones(N).to(device)
+            W_init = np.maximum(np.random.rand(F,nmf_rank), eps, dtype='float32')
+            H_init = np.maximum(np.random.rand(nmf_rank, N), eps, dtype='float32')
+            g_init = torch.ones(N).to(device) # float32 by default
 
             mcem = mcem_simon.MCEM_M2(X=x_tf,
                                 W=W_init,

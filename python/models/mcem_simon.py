@@ -340,7 +340,7 @@ class MCEM_M1(EM):
         
         
         
-    def sample_posterior(self, Z, y, nsamples=10, burnin=30):
+    def sample_posterior(self, Z, nsamples=10, burnin=30):
         # Metropolis-Hastings
         
         F, N = self.X.shape
@@ -349,6 +349,8 @@ class MCEM_M1(EM):
             L = self.vae.latent_dim
         elif hasattr(self.vae, 'z_dim'):
             L = self.vae.z_dim
+        else:
+            L = Z.shape[0]
         
         # random walk variance as tensor
         #var_RM_t = torch.tensor(np.float32(self.var_RW))

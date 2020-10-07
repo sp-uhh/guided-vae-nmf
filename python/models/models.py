@@ -6,10 +6,6 @@ import torch.nn.functional as F
 from python.models.distributions import log_gaussian, log_standard_gaussian
 
 class Stochastic(nn.Module):
-    """
-    Base stochastic layer that uses the reparametrization trick [Kingma 2013]
-    to draw a sample from a distribution parametrised by mu and log_var.
-    """
     def reparametrize(self, mu, log_var):
         epsilon = torch.randn(mu.size(), requires_grad=False)
 
@@ -26,9 +22,6 @@ class Stochastic(nn.Module):
         return z
 
 class GaussianSample(Stochastic):
-    """
-    Layer that represents a sample from a Gaussian distribution.
-    """
     def __init__(self, in_features, out_features):
         super(GaussianSample, self).__init__()
         self.in_features = in_features
@@ -47,9 +40,6 @@ class GaussianSample(Stochastic):
 
 class Classifier(nn.Module):
     def __init__(self, dims):
-        """
-        Single hidden layer classifier with softmax output.
-        """
         super(Classifier, self).__init__()
         [x_dim, h_dim, y_dim] = dims
         self.input_layer = nn.Linear(x_dim, h_dim)
@@ -64,16 +54,6 @@ class Classifier(nn.Module):
 
 class Encoder(nn.Module):
     def __init__(self, dims, sample_layer=GaussianSample):
-        """
-        Inference network
-
-        Attempts to infer the probability distribution p(z|x) from the data by fitting a variational
-        distribution q_φ(z|x). Returns the two parameters of the distribution (µ, log σ²).
-
-        :param dims: dimensions of the networks
-           given by the number of neurons on the form
-           [input_dim, [hidden_dims], latent_dim].
-        """
         super(Encoder, self).__init__()
 
         [x_dim, h_dim, z_dim] = dims
@@ -85,24 +65,12 @@ class Encoder(nn.Module):
 
     def forward(self, x):
         for layer in self.hidden:
-            #x = F.relu(layer(x))
-            #x = F.tanh(layer(x))
             x = torch.tanh(layer(x))
         return self.sample(x)
 
 
 class Decoder(nn.Module):
     def __init__(self, dims):
-        """
-        Generative network
-
-        Generates samples from the original distribution p(x) by transforming a latent 
-        representation, e.g. by finding p_θ(x|z).
-
-        :param dims: dimensions of the networks
-            given by the number of neurons on the form
-            [latent_dim, [hidden_dims], input_dim].
-        """
         super(Decoder, self).__init__()
 
         [z_dim, h_dim, x_dim] = dims
@@ -110,29 +78,16 @@ class Decoder(nn.Module):
         neurons = [z_dim, *h_dim]
         linear_layers = [nn.Linear(neurons[i-1], neurons[i]) for i in range(1, len(neurons))]
         self.hidden = nn.ModuleList(linear_layers)
-
         self.reconstruction = nn.Linear(h_dim[-1], x_dim)
-
-        #self.output_activation = nn.Sigmoid()
-        #self.output_activation = torch.exp
 
     def forward(self, x):
         for layer in self.hidden:
-            #x = F.relu(layer(x))
-            #x = F.tanh(layer(x))
             x = torch.tanh(layer(x))
-        #return self.output_activation(self.reconstruction(x))
         return torch.exp(self.reconstruction(x))
 
 
 class VariationalAutoencoder(nn.Module):
     def __init__(self, dims):
-        """
-        Variational Autoencoder [Kingma 2013] model consisting of an encoder/decoder pair for which
-        a variational distribution is fitted to the encoder. Also known as the M1 model in [Kingma 2014].
-
-        :param dims: x, z and hidden dimensions of the networks
-        """
         super(VariationalAutoencoder, self).__init__()
 
         [x_dim, z_dim, h_dim] = dims
@@ -150,17 +105,6 @@ class VariationalAutoencoder(nn.Module):
                     m.bias.data.zero_()
 
     def _kld(self, z, q_param, p_param=None):
-        """
-        Computes the KL-divergence of some element z.
-
-        KL(q||p) = -∫ q(z) log [ p(z) / q(z) ]
-                 = -E[log p(z) - log q(z)]
-
-        :param z: sample from q-distribuion
-        :param q_param: (mu, log_var) of the q-distribution
-        :param p_param: (mu, log_var) of the p-distribution
-        :return: KL(q||p)
-        """
         (mu, log_var) = q_param
 
         if self.flow is not None:
@@ -190,45 +134,20 @@ class VariationalAutoencoder(nn.Module):
         self.flow = flow
 
     def forward(self, x, y=None):
-        """
-        Runs a data point through the model in order to provide its reconstruction 
-        and q distribution parameters.
-
-        :param x: input data
-        :return: reconstructed input
-        """
         z, z_mu, z_log_var = self.encoder(x)
 
-        self.kl_divergence = self._kld(z, (z_mu, z_log_var))
+        self.kl_divergence = self._kld_v2(z, (z_mu, z_log_var))
 
         x_mu = self.decoder(z)
 
-        return x_mu
+        return x_mu, z_mu, z_log_var
 
     def sample(self, z):
-        """
-        Given z ~ N(0, I) generates a sample from the learned distribution based on p_θ(x|z).
-
-        :param z: (torch.autograd.Variable) Random normal variable
-        :return: (torch.autograd.Variable) generated sample
-        """
         return self.decoder(z)
 
 
 class DeepGenerativeModel(VariationalAutoencoder):
     def __init__(self, dims):
-        """
-        M2 code replication from the paper
-        'Semi-Supervised Learning with Deep Generative Models'
-        (Kingma 2014) in PyTorch.
-
-        The "Generative semi-supervised model" is a probabilistic
-        model that incorporates label information in both
-        inference and generation.
-
-        Initialise a new generative model
-        :param dims: dimensions of x, y, z and hidden layers.
-        """
         [x_dim, self.y_dim, z_dim, h_dim] = dims
         super(DeepGenerativeModel, self).__init__([x_dim, z_dim, h_dim])
 
@@ -259,12 +178,6 @@ class DeepGenerativeModel(VariationalAutoencoder):
         return y
 
     def sample(self, z, y):
-        """
-        Samples from the Decoder to generate an x.
-        :param z: latent normal variable
-        :param y: label (one-hot encoded)
-        :return: x
-        """
         y = y.float()
         x = self.decoder(torch.cat([z, y], dim=1))
         return x

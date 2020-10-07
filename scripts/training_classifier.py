@@ -8,14 +8,14 @@ sys.path.append('.')
 from torch.utils.data import DataLoader
 from python.utils import count_parameters
 from python.data import SpectrogramLabeledFrames
-from python.models.models import DeepGenerativeModel
-from python.models.utils import elbo
+from python.models.models import Classifier
+from python.models.utils import binary_cross_entropy, f1_loss
 
 ##################################### SETTINGS #####################################################
 
 # Dataset
-dataset_size = 'subset'
-# dataset_size = 'complete'
+# dataset_size = 'subset'
+dataset_size = 'complete'
 
 # System 
 cuda = torch.cuda.is_available()
@@ -28,8 +28,7 @@ eps = 1e-8
 # Deep Generative Model
 x_dim = 513 
 y_dim = 513
-z_dim = 16
-h_dim = [128, 128]
+h_dim = 128
 
 # Training
 batch_size = 128
@@ -62,11 +61,11 @@ print('- Number of validation samples: {}'.format(len(valid_dataset)))
 
 def main():
     print('Create model')
-    model = DeepGenerativeModel([x_dim, y_dim, z_dim, h_dim])
+    model = Classifier([x_dim, h_dim, y_dim])
     if cuda: model = model.to(device, non_blocking=non_blocking)
 
     # Create model folder
-    model_dir = os.path.join('models', 'M2_end_epoch_{:03d}'.format(end_epoch))
+    model_dir = os.path.join('models', 'Classifier_end_epoch_{:03d}'.format(end_epoch))
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
 
@@ -84,66 +83,80 @@ def main():
     print('Start training')
     for epoch in range(start_epoch, end_epoch):
         model.train()
-        total_elbo, total_likelihood, total_kl = (0, 0, 0)
+        total_loss, total_tp, total_tn, total_fp, total_fn = (0, 0, 0, 0, 0)
         for batch_idx, (x, y) in enumerate(train_loader):
             if cuda:
                 x, y = x.to(device, non_blocking=non_blocking), y.to(device, non_blocking=non_blocking)
 
-            r, mu, logvar = model(x, y)
-            loss, recon_loss, KL = elbo(x, r, mu, logvar, eps)
+            y_hat_soft = model(x)
+            loss = binary_cross_entropy(y_hat_soft, y, eps)
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
 
-            total_elbo += loss.item()
-            total_likelihood += recon_loss.item()
-            total_kl += KL.item()
+            total_loss += loss.item()
+
+            y_hat_hard = (y_hat_soft > 0.5).int()
+
+            f1_score, tp, tn, fp, fn = f1_loss(y_hat_hard=torch.flatten(y_hat_hard), y=torch.flatten(y), epsilon=eps)
+            total_tp += tp.item()
+            total_tn += tn.item()
+            total_fp += fp.item()
+            total_fn += fn.item()
 
             # Save to log
             if batch_idx % log_interval == 0:
-                print(('Train Epoch: {:2d}   [{:7d}/{:7d} ({:2d}%)]    '\
-                    'ELBO: {:.3f}    Recon.: {:.3f}    KL: {:.3f}    '\
+                print(('Train Epoch: {:2d}   [{:7d}/{:7d} ({:2d}%)]    Loss: {:.2f}    F1-score.: {:.2f}'\
                     + '').format(epoch, batch_idx*len(x), len(train_loader.dataset), int(100.*batch_idx/len(train_loader)),\
-                            loss.item(), recon_loss.item(), KL.item()), 
+                            loss.item(), f1_score.item()), 
                     file=open(model_dir + '/' + 'output_batch.log','a'))
 
         if epoch % 1 == 0:
             model.eval()
 
+            total_precision = total_tp / (total_tp + total_fp + eps)
+            total_recall = total_tp / (total_tp + total_fn + eps) 
+            total_f1_score = 2 * (total_precision * total_recall) / (total_precision + total_recall + eps)
+
             print("Epoch: {}".format(epoch))
-            print("[Train]\t\t ELBO: {:.2f}, Recon.: {:.2f}, KL: {:.2f}"\
-                "".format(total_elbo / t, total_likelihood / t, total_kl / t))
+            print("[Train]       Loss: {:.2f}    F1_score: {:.2f}".format(total_loss / t, total_f1_score))
 
             # Save to log
             print(("Epoch: {}".format(epoch)), file=open(model_dir + '/' + 'output_epoch.log','a'))
-            print(("[Train]\t\t ELBO: {:.2f}, Recon.: {:.2f}, KL: {:.2f}"\
-                "".format(total_elbo / t, total_likelihood / t, total_kl / t)),
+            print("[Train]       Loss: {:.2f}    F1_score: {:.2f}".format(total_loss / t, total_f1_score),
                 file=open(model_dir + '/' + 'output_epoch.log','a'))
 
-            total_elbo, total_likelihood, total_kl = (0, 0, 0)
+            total_loss, total_tp, total_tn, total_fp, total_fn = (0, 0, 0, 0, 0)
 
             for batch_idx, (x, y) in enumerate(valid_loader):
 
                 if cuda:
                     x, y = x.to(device, non_blocking=non_blocking), y.to(device, non_blocking=non_blocking)
 
-                r, mu, logvar = model(x, y)
-                loss, recon_loss, KL = elbo(x, r, mu, logvar, eps)
+                y_hat_soft = model(x)
+                loss = binary_cross_entropy(y_hat_soft, y, eps)
 
-                total_elbo += loss.item()
-                total_likelihood += recon_loss.item()
-                total_kl += KL.item()
-  
-            print("[Validation]\t ELBO: {:.2f}, Recon.: {:.2f}, KL: {:.2f}"\
-                "".format(total_elbo / m, total_likelihood / m, total_kl / m))
+                total_loss += loss.item()
+                y_hat_hard = (y_hat_soft > 0.5).int()
+                f1_score, tp, tn, fp, fn = f1_loss(y_hat_hard=torch.flatten(y_hat_hard), y=torch.flatten(y), epsilon=eps)
+                total_tp += tp.item()
+                total_tn += tn.item()
+                total_fp += fp.item()
+                total_fn += fn.item()
 
-            print(("[Validation]\t ELBO: {:.2f}, Recon.: {:.2f}, KL: {:.2f}"\
-                "".format(total_elbo / m, total_likelihood / m, total_kl / m)),
+            total_precision = total_tp / (total_tp + total_fp + eps)
+            total_recall = total_tp / (total_tp + total_fn + eps) 
+            total_f1_score = 2 * (total_precision * total_recall) / (total_precision + total_recall + eps)
+
+            print("[Validation]  Loss: {:.2f}    F1_score: {:.2f}".format(total_loss / m, total_f1_score))
+
+            # Save to log
+            print("[Validation] Loss: {:.2f}    F1_score: {:.2f}".format(total_loss / m, total_f1_score),
                 file=open(model_dir + '/' + 'output_epoch.log','a'))
 
             # Save model
-            torch.save(model.state_dict(), model_dir + '/' + 'M2_epoch_{:03d}_vloss_{:.2f}.pt'.format(
-                epoch, total_elbo / m))
-            
+            torch.save(model.state_dict(), model_dir + '/' + 'Classifier_epoch_{:03d}_vloss_{:.2f}.pt'.format(
+                epoch, total_loss / m))
+
 if __name__ == '__main__':
     main()

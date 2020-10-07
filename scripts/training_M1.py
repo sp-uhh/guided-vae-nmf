@@ -9,16 +9,17 @@ from torch.utils.data import DataLoader
 from python.data import SpectrogramFrames
 from python.utils import count_parameters
 from python.models.models import VariationalAutoencoder
+from python.models.utils import elbo
 
 ##################################### SETTINGS #####################################################
 
 # Dataset
-# dataset_size = 'subset'
-dataset_size = 'complete'
+dataset_size = 'subset'
+# dataset_size = 'complete'
 
 # System 
 cuda = torch.cuda.is_available()
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if cuda else "cpu")
 num_workers = 8
 pin_memory = True
 non_blocking = True
@@ -55,12 +56,6 @@ valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, s
 print('- Number of training samples: {}'.format(len(train_dataset)))
 print('- Number of validation samples: {}'.format(len(valid_dataset)))
 
-
-def loss_function(x, r, mu, logvar): 
-    recon = torch.mean(torch.sum(x/r - torch.log(x + eps) + torch.log(r) - 1, dim=-1))
-    KL = -0.5 * torch.mean(torch.sum(logvar - mu.pow(2) - logvar.exp(), dim=-1))
-    return recon + KL, recon, KL
-
 def main():
     print('Create model')
     model = VariationalAutoencoder([x_dim, z_dim, h_dim])
@@ -75,13 +70,12 @@ def main():
     file = open(model_dir + '/' +'output_batch.log','w') 
     file = open(model_dir + '/' +'output_epoch.log','w') 
 
-    print('- Number of learnable parameters: {}'.format(count_parameters(model)))
-
     # Optimizer settings
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.999))
 
     t = len(train_loader)
     m = len(valid_loader)
+    print('- Number of learnable parameters: {}'.format(count_parameters(model)))
 
     print('Start training')
     for epoch in range(start_epoch, end_epoch):
@@ -91,7 +85,7 @@ def main():
             if cuda: x = x.to(device, non_blocking=non_blocking)
 
             r, mu, logvar = model(x)
-            loss, recon_loss, KL = loss_function(x, r, mu, logvar)
+            loss, recon_loss, KL = elbo(x, r, mu, logvar, eps)
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
@@ -129,7 +123,7 @@ def main():
                     x = x.cuda(device=device, non_blocking=non_blocking)
 
                 r, mu, logvar = model(x)
-                loss, recon_loss, KL = loss_function(x, r, mu, logvar)
+                loss, recon_loss, KL = elbo(x, r, mu, logvar, eps)
 
                 total_elbo += loss.item()
                 total_likelihood += recon_loss.item()

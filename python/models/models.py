@@ -162,16 +162,15 @@ class DeepGenerativeModel(VariationalAutoencoder):
                     m.bias.data.zero_()
 
     def forward(self, x, y):
-        # Add label and data and generate latent variable
         z, z_mu, z_log_var = self.encoder(torch.cat([x, y], dim=1))
-
-        #self.kl_divergence = self._kld(z, (z_mu, z_log_var))
-        self.kl_divergence = self._kld_v2(z, (z_mu, z_log_var))
-
-        # Reconstruct data point from latent data and label
         x_mu = self.decoder(torch.cat([z, y], dim=1))
+        return x_mu, z_mu, z_log_var
 
-        return x_mu
+    def test(self, x):
+        y = classify(x)
+        z, z_mu, z_log_var = self.encoder(torch.cat([x, y], dim=1))
+        x_mu = self.decoder(torch.cat([z, y], dim=1))
+        return x_mu, z_mu, z_log_var
 
     def classify(self, x):
         y = self.classifier(x)

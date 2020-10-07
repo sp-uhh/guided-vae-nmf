@@ -59,7 +59,9 @@ def binary_cross_entropy(r, x, eps):
     return -torch.sum(x * torch.log(r + eps) + (1 - x) * torch.log(1 - r + eps), dim=-1)
 
 def ikatura_saito_divergence(r, x, eps):
-    return torch.sum((x + eps)/(r + eps) - torch.log((x + eps)/(r+ eps)) - 1, dim=-1)
+    #return torch.sum((x + eps)/(r + eps) - torch.log((x + eps)/(r+ eps)) - 1, dim=-1)
+    #return torch.sum((x + eps)/(r + eps) - torch.log(x + eps) + torch.log(r+ eps) - 1, dim=-1)
+    return torch.sum(x/r - torch.log(x + eps) + torch.log(r) - 1, dim=-1)
 
 def f1_loss(y_hat_hard:torch.Tensor, y:torch.Tensor, epsilon=1e-8) -> torch.Tensor:
     '''Calculate F1 score. Can work with gpu tensors

@@ -7,7 +7,7 @@ import os
 from tqdm import tqdm
 
 from python.dataset.csr1_wjs0_dataset import speech_list, write_dataset
-from python.dataset.qut_database import noise_list, preprocess_noise, noise_segment, 
+from python.dataset.qut_database import noise_list, preprocess_noise, noise_segment
 from python.utils import open_file
 
 

@@ -237,7 +237,7 @@ def main():
         write_dataset(all_snr_dB, output_wav_dir, dataset_type, 'snr_db')
         # TODO: save histogram of SNR
 
-        open_file(output_pickle_dir)
+        # open_file(output_pickle_dir)
 
 if __name__ == '__main__':
     #process_noise()

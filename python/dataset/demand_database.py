@@ -69,6 +69,21 @@ def noise_list(input_noise_dir, dataset_type='test'):
 
     return subset_noise_paths
 
+def preprocess_noise(noise_audio, fs_noise, fs):
+    """[summary]
+
+    Args:
+        noise_list ([type]): [description]
+
+    Returns:
+        [type]: [description]
+    """
+    # Downsample to 16kHz
+    if fs != fs_noise:
+        noise_audio_resamp = resample(noise_audio, fs_noise, fs)
+
+    return noise_audio_resamp
+
 def noise_segment(noise_audios, noise_type, speech):
     """[summary]
 

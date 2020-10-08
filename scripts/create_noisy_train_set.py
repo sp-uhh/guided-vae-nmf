@@ -7,7 +7,9 @@ import os
 from tqdm import tqdm
 
 from python.dataset.csr1_wjs0_dataset import speech_list, write_dataset
-from python.dataset.demand_database import noise_list, noise_segment
+from python.dataset.demand_database import noise_list, preprocess_noise, noise_segment
+from python.processing.stft import stft
+from python.processing.target import clean_speech_IBM
 from python.utils import open_file
 
 
@@ -33,6 +35,9 @@ hop_percent = 0.25  # hop size as a percentage of the window length
 win = 'hann' # type of window
 dtype = 'complex64'
 
+## Ideal binary mask
+quantile_fraction = 0.98
+quantile_weight = 0.999
 def process_noise():
 
     for dataset_type in dataset_types:
@@ -70,12 +75,12 @@ def process_noise():
                 
                     noise_audio_sample, fs_noise = sf.read(input_noise_dir + noise_path)
 
-                    if fs != fs_noise:
-                        raise ValueError('Unexpected sampling rate. Please use the 16kHz version of the DEMAND database.')
-
                     noise_audio.append(noise_audio_sample)
                 
                 noise_audio = np.concatenate(noise_audio,axis=0)
+
+                # Preprocess noise   
+                noise_audio = preprocess_noise(noise_audio, fs_noise, fs)
                 
                 # Save the big file
                 if not os.path.exists(os.path.dirname(output_noise_path)):
@@ -128,70 +133,105 @@ def main():
                 noise_audios[noise_type] = noise_audio
 
         # Create mixture
-        speeches = []
-        mixtures = []
-        noises = []
+        noisy_spectrograms = []
+        noisy_labels = []
         all_snr_dB = []
 
-        # Loop over the speech files
-        for i, file_path in tqdm(enumerate(file_paths)):
+        # Do 2 iterations to save separately noisy_spectro and noisy_labels (RAM issues)
+        for iteration in range(2):
 
-            speech, fs_speech = sf.read(input_speech_dir + file_path, samplerate=None)
+            # Loop over the speech files
+            for i, file_path in tqdm(enumerate(file_paths)):
 
-            # Cut burst at begining of file
-            speech = speech[int(0.1*fs):]
+                speech, fs_speech = sf.read(input_speech_dir + file_path, samplerate=None)
 
-            # Normalize audio
-            speech = speech/(np.max(np.abs(speech)))
+                # Cut burst at begining of file
+                speech = speech[int(0.1*fs):]
 
-            if fs != fs_speech:
-                raise ValueError('Unexpected sampling rate')
+                # Normalize audio
+                speech = speech/(np.max(np.abs(speech)))
 
-            # Select noise_type            
-            noise_type = noise_types[noise_index[i]]
-    
-            # Extract noise segment
-            noise = noise_segment(noise_audios, noise_type, speech)
+                if fs != fs_speech:
+                    raise ValueError('Unexpected sampling rate')
 
-            # Select SNR
-            snr_dB = snrs[snrs_index[i]]
-            all_snr_dB.append(snr_dB)
-
-            # Compute noise gain
-            speech_power = np.sum(np.power(speech, 2))
-            noise_power = np.sum(np.power(noise, 2))
-            noise_power_target = speech_power*np.power(10,-snr_dB/10)
-            k = noise_power_target / noise_power
-            noise = noise * np.sqrt(k)
-
-            # Normalize by max of speech, noise, speech+noise
-            norm = np.max(abs(np.concatenate([speech, noise, speech+noise])))
-            speech /= norm
-            noise /= norm
-            mixture = (speech+noise) / norm
-
-            # Append processed audios
-            speeches.append(speech) 
-            noises.append(noise)
-            mixtures.append(mixture)
-
-            # Save .wav files
-            output_path = output_wav_dir + file_path
-            output_path = os.path.splitext(output_path)[0]
-
-            if not os.path.exists(os.path.dirname(output_path)):
-                os.makedirs(os.path.dirname(output_path))
-            
-            sf.write(output_path + '_s.wav', speech, fs)
-            sf.write(output_path + '_n.wav', noise, fs)
-            sf.write(output_path + '_x.wav', speech+noise, fs)
-
-            # TODO: save SNR, level_s, level_n in a figure
+                # Select noise_type            
+                noise_type = noise_types[noise_index[i]]
         
-        #pickle.dump(audio_files, open(output_data_dir + '../data/pickle/clean_speech.p', 'wb'), protocol=4)
-        write_dataset(speeches, output_pickle_dir, dataset_type, 'speech-505')
-        write_dataset(noises, output_pickle_dir, dataset_type, 'noise-505')
-        write_dataset(mixtures, output_pickle_dir, dataset_type, 'mixture-505')
+                # Extract noise segment
+                noise = noise_segment(noise_audios, noise_type, speech)
+
+                # Select SNR
+                snr_dB = snrs[snrs_index[i]]
+                all_snr_dB.append(snr_dB)
+
+                # Compute noise gain
+                speech_power = np.sum(np.power(speech, 2))
+                noise_power = np.sum(np.power(noise, 2))
+                noise_power_target = speech_power*np.power(10,-snr_dB/10)
+                k = noise_power_target / noise_power
+                noise = noise * np.sqrt(k)
+
+                mixture = speech + noise
+
+                # # Normalize by max of speech, noise, speech+noise
+                # norm = np.max(abs(np.concatenate([speech, noise, speech+noise])))
+                # speech /= norm
+                # noise /= norm
+                # mixture = (speech+noise) / norm
+
+                if dataset_size == 'subset':
+                    # Save .wav files, just to check if it working
+                    output_path = output_wav_dir + file_path
+                    output_path = os.path.splitext(output_path)[0]
+
+                    if not os.path.exists(os.path.dirname(output_path)):
+                        os.makedirs(os.path.dirname(output_path))
+                    
+                    sf.write(output_path + '_s.wav', speech, fs)
+                    sf.write(output_path + '_n.wav', noise, fs)
+                    sf.write(output_path + '_x.wav', speech+noise, fs)
+
+                if iteration == 0:                
+                    # TF reprepsentation
+                    speech_tf = stft(speech, fs=fs, wlen_sec=wlen_sec, win=win, 
+                        hop_percent=hop_percent, dtype=dtype)
+
+                    # binary mask
+                    speech_ibm = clean_speech_IBM(speech_tf,
+                                            quantile_fraction=quantile_fraction,
+                                            quantile_weight=quantile_weight)
+                    noisy_labels.append(speech_ibm)
+
+                if iteration == 1:
+                    # TF reprepsentation
+                    mixture_tf = stft(mixture, fs=fs, wlen_sec=wlen_sec, win=win, 
+                        hop_percent=hop_percent, dtype=dtype)
+                    
+                                
+                    noisy_spectrograms.append(np.power(abs(mixture_tf), 2))
+
+            if iteration == 0:
+                noisy_labels = np.concatenate(noisy_labels, axis=1)
+        
+                # write spectrograms
+                write_dataset(noisy_labels,
+                            output_data_dir=output_pickle_dir,
+                            dataset_type=dataset_type,
+                            suffix='noisy_labels')
+                
+                del noisy_labels
+
+            if iteration == 1:
+                noisy_spectrograms = np.concatenate(noisy_spectrograms, axis=1)
+
+                # write spectrograms
+                write_dataset(noisy_spectrograms,
+                            output_data_dir=output_pickle_dir,
+                            dataset_type=dataset_type,
+                            suffix='noisy_frames')
+                
+                del noisy_spectrograms
+
 
         # TODO: save SNR, level_s, level_n in 1 big csv
         write_dataset(all_snr_dB, output_wav_dir, dataset_type, 'snr_db')
@@ -200,5 +240,5 @@ def main():
         open_file(output_pickle_dir)
 
 if __name__ == '__main__':
-    process_noise()
+    #process_noise()
     main()

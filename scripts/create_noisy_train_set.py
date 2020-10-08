@@ -7,7 +7,7 @@ import os
 from tqdm import tqdm
 
 from python.dataset.csr1_wjs0_dataset import speech_list, write_dataset
-from python.dataset.qut_database import noise_list, preprocess_noise, noise_segment, 
+from python.dataset.demand_database import noise_list, preprocess_noise, noise_segment
 from python.utils import open_file
 
 
@@ -20,8 +20,8 @@ dataset_size = 'subset'
 
 input_speech_dir = os.path.join('data', dataset_size, 'raw/')
 
-input_noise_dir = 'data/complete/raw/qutnoise_databases/' # change the name of the subfolder in your computer
-output_noise_dir = 'data/complete/processed/qutnoise_databases/' # change the name of the subfolder in your computer
+input_noise_dir = 'data/complete/raw/Demand/' # change the name of the subfolder in your computer
+output_noise_dir = 'data/complete/processed/Demand/' # change the name of the subfolder in your computer
 
 output_wav_dir = os.path.join('data', dataset_size, 'processed/')
 output_pickle_dir = os.path.join('data', dataset_size, 'pickle/')
@@ -42,10 +42,14 @@ def main():
     # Create SNR list
     np.random.seed(0)
     
-    noise_types = ['cafe', 'home', 'street', 'car']
+    if dataset_type == 'train':
+        noise_types = ['NRIVER', 'TMETRO', 'DWASHING', 'OOFICE']
+    if dataset_type == 'validation':
+        noise_types = ['NFIELD', 'TBUS', 'PSTATION', 'OHALLWAY']
+    
     noise_index = np.random.randint(len(noise_types), size=len(file_paths))
     
-    snrs = [-5.0, 0.0, 5.0]
+    snrs = [0.0, 2.5, 5.0]
     snrs_index = np.random.randint(3, size=len(file_paths))
 
     # Create noise audios

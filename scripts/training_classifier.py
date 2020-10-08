@@ -8,7 +8,7 @@ sys.path.append('.')
 from torch.utils.data import DataLoader
 from python.utils import count_parameters
 from python.data import SpectrogramLabeledFrames
-from python.models.models import Classifier
+from python.models.models import Classifier, UNet
 from python.models.utils import binary_cross_entropy, f1_loss
 
 ##################################### SETTINGS #####################################################
@@ -61,11 +61,12 @@ print('- Number of validation samples: {}'.format(len(valid_dataset)))
 
 def main():
     print('Create model')
-    model = Classifier([x_dim, h_dim, y_dim])
+    model = UNet(n_channels=1, n_classes=1)
+    # model = Classifier([x_dim, h_dim, y_dim])
     if cuda: model = model.to(device, non_blocking=non_blocking)
 
     # Create model folder
-    model_dir = os.path.join('models', 'Classifier_end_epoch_{:03d}'.format(end_epoch))
+    model_dir = os.path.join('models', 'UNet_end_epoch_{:03d}'.format(end_epoch))
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
 

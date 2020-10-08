@@ -44,7 +44,19 @@ dtype = 'complex64'
 
 ## Deep Generative Model
 #model_name = 'dummy_M2_10_epoch_010_vloss_108.79'
-model_name = 'dummy_M2_alpha_5.0_epoch_100_vloss_466.72'
+#model_name = 'dummy_M2_alpha_5.0_epoch_100_vloss_466.72'
+# x_dim = 513 # frequency bins (spectrogram)
+# y_dim = 513 # frequency bins (binary mask)
+# z_dim = 128
+# h_dim = [256, 128]
+
+# model_name = 'M2_alpha_1.0_end_epoch_050/M2_alpha_1.0_epoch_049_vloss_6.80'
+# x_dim = 513 # frequency bins (spectrogram)
+# y_dim = 513 # frequency bins (binary mask)
+# z_dim = 128
+# h_dim = [256, 128]
+
+model_name = 'M2_alpha_10.0_end_epoch_050/M2_alpha_10.0_epoch_049_vloss_10.51'
 x_dim = 513 # frequency bins (spectrogram)
 y_dim = 513 # frequency bins (binary mask)
 z_dim = 128
@@ -82,7 +94,7 @@ def main():
     test_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_et_05_mixture-505.p'), 'rb'))
 
     model = DeepGenerativeModel([x_dim, y_dim, z_dim, h_dim])
-    model.load_state_dict(torch.load(os.path.join('models', model_name + '.pt')))
+    model.load_state_dict(torch.load(os.path.join('models', model_name + '.pt'), map_location='cuda:0'))
     if cuda: model = model.cuda()
 
     model.eval()
@@ -118,7 +130,8 @@ def main():
         x = torch.tensor(np.power(np.abs(x_tf), 2)).to(device)
 
         # Classify
-        y_hat = model.classify(x) # (frames, freq_bins)
+        y_hat_soft = model.classify(x) # (frames, freq_bins)
+        y_hat_hard = (y_hat_soft > 0.5).int()
         
         # # Target
         # s_t, fs_s = sf.read(processed_data_dir + os.path.splitext(file_path)[0] + '_s.wav') # clean speech
@@ -134,7 +147,7 @@ def main():
         # y_hat = torch.from_numpy(y_hat.T).to(device)
 
         # Encode
-        _, Z_init, _ = model.encoder(torch.cat([x, y_hat], dim=1))
+        _, Z_init, _ = model.encoder(torch.cat([x, y_hat_hard], dim=1))
 
         # MCEM
         if use_mcem_julius and not use_mcem_simon:
@@ -142,7 +155,7 @@ def main():
             # NMF parameters are initialized inside MCEM
             mcem = mcem_julius.MCEM_M2(X=x_tf.T,
                                     Z=Z_init.T,
-                                    y=y_hat.T,
+                                    y=y_hat_hard.T,
                                     model=model,
                                     device=device,
                                     niter_MCEM=niter,
@@ -172,7 +185,7 @@ def main():
                                 H=H_init,
                                 g=g_init,
                                 Z=Z_init,
-                                y=y_hat,
+                                y=y_hat_hard,
                                 vae=model, device=device, niter=niter,
                                 nsamples_E_step=nsamples_E_step,
                                 burnin_E_step=burnin_E_step, nsamples_WF=nsamples_WF, 
@@ -214,7 +227,8 @@ def main():
         sf.write(output_path + '_n_est.wav', n_hat, fs)
         
         # Save binary mask
-        torch.save(y_hat, output_path + '_ibm_est.pt')
+        torch.save(y_hat_soft, output_path + '_ibm_soft_est.pt')
+        torch.save(y_hat_soft, output_path + '_ibm_hard_est.pt')
 
     # pickle.dump(s_hat, open('../data/pickle/s_hat_vae', 'wb'), protocol=4)
     # pickle.dump(n_hat, open('../data/pickle/n_hat_vae', 'wb'), protocol=4)

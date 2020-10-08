@@ -16,8 +16,8 @@ from python.utils import open_file
 ## Dataset
 dataset_types = ['train', 'validation']
 
-#dataset_size = 'subset'
-dataset_size = 'complete'
+dataset_size = 'subset'
+#dataset_size = 'complete'
 
 input_speech_dir = os.path.join('data', dataset_size, 'raw/')
 
@@ -48,49 +48,61 @@ def main():
         spectrograms = []
         labels = []
 
-        for i, file_path in tqdm(enumerate(file_paths)):
+        # Do 2 iterations to save separately spectro and labels (RAM issues)
+        for iteration in range(2):
 
-            speech, fs_speech = sf.read(input_speech_dir + file_path, samplerate=None)
+            for i, file_path in tqdm(enumerate(file_paths)):
 
-            # Cut burst at begining of file
-            speech = speech[int(0.1*fs):]
+                speech, fs_speech = sf.read(input_speech_dir + file_path, samplerate=None)
 
-            # Normalize audio
-            speech = speech/(np.max(np.abs(speech)))
+                # Cut burst at begining of file
+                speech = speech[int(0.1*fs):]
 
-            if fs != fs_speech:
-                raise ValueError('Unexpected sampling rate')
+                # Normalize audio
+                speech = speech/(np.max(np.abs(speech)))
 
-            # TF reprepsentation
-            speech_tf = stft(speech, fs=fs, wlen_sec=wlen_sec, win=win, 
-                hop_percent=hop_percent, dtype=dtype)
+                if fs != fs_speech:
+                    raise ValueError('Unexpected sampling rate')
 
-            # binary mask
-            speech_ibm = clean_speech_IBM(speech_tf,
-                                    quantile_fraction=quantile_fraction,
-                                    quantile_weight=quantile_weight)
-            
-            spectrograms.append(np.power(abs(speech_tf), 2))
-            # labels.append(speech_ibm)
-        
-        spectrograms = np.concatenate(spectrograms, axis=1)
-        # labels = np.concatenate(labels, axis=1)
-        
-        # write spectrograms
-        write_dataset(spectrograms,
-                    output_data_dir=output_pickle_dir,
-                    dataset_type=dataset_type,
-                    suffix='frames')
+                # TF reprepsentation
+                speech_tf = stft(speech, fs=fs, wlen_sec=wlen_sec, win=win, 
+                    hop_percent=hop_percent, dtype=dtype)
 
-        del spectrograms
-        
-        # write spectrograms
-        # write_dataset(labels,
-        #             output_data_dir=output_pickle_dir,
-        #             dataset_type=dataset_type,
-        #             suffix='labels')
+                # binary mask
+                speech_ibm = clean_speech_IBM(speech_tf,
+                                        quantile_fraction=quantile_fraction,
+                                        quantile_weight=quantile_weight)
+                
+                if iteration == 0:
+                    labels.append(speech_ibm)
 
-        #open_file(output_pickle_dir)
+                if iteration == 1:
+                    spectrograms.append(np.power(abs(speech_tf), 2))
+
+            if iteration == 0:
+                labels = np.concatenate(labels, axis=1)
+                
+                # write spectrograms
+                write_dataset(labels,
+                            output_data_dir=output_pickle_dir,
+                            dataset_type=dataset_type,
+                            suffix='labels')
+
+                del labels            
+
+            if iteration == 1:          
+                spectrograms = np.concatenate(spectrograms, axis=1)
+                # write spectrograms
+                write_dataset(spectrograms,
+                            output_data_dir=output_pickle_dir,
+                            dataset_type=dataset_type,
+                            suffix='frames')
+
+                del spectrograms
+
+
+
+            #open_file(output_pickle_dir)
 
 if __name__ == '__main__':
     main()

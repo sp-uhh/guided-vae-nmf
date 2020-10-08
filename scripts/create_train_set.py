@@ -62,35 +62,33 @@ def main():
                 raise ValueError('Unexpected sampling rate')
 
             # TF reprepsentation
-            speech_tf = stft(speech,
-                        fs=fs,
-                        wlen_sec=wlen_sec,
-                        win=win,
-                        hop_percent=hop_percent,
-                        dtype=dtype)
+            speech_tf = stft(speech, fs=fs, wlen_sec=wlen_sec, win=win, 
+                hop_percent=hop_percent, dtype=dtype)
 
             # binary mask
             speech_ibm = clean_speech_IBM(speech_tf,
                                     quantile_fraction=quantile_fraction,
                                     quantile_weight=quantile_weight)
             
-            # spectrograms.append(np.power(abs(speech_tf), 2))
-            labels.append(speech_ibm)
+            spectrograms.append(np.power(abs(speech_tf), 2))
+            # labels.append(speech_ibm)
         
-        # spectrograms = np.concatenate(spectrograms, axis=1)
-        labels = np.concatenate(labels, axis=1)
-        
-        # # write spectrograms
-        # write_dataset(spectrograms,
-        #             output_data_dir=output_pickle_dir,
-        #             dataset_type=dataset_type,
-        #             suffix='frames')
+        spectrograms = np.concatenate(spectrograms, axis=1)
+        # labels = np.concatenate(labels, axis=1)
         
         # write spectrograms
-        write_dataset(labels,
+        write_dataset(spectrograms,
                     output_data_dir=output_pickle_dir,
                     dataset_type=dataset_type,
-                    suffix='labels')
+                    suffix='frames')
+
+        del spectrograms
+        
+        # write spectrograms
+        # write_dataset(labels,
+        #             output_data_dir=output_pickle_dir,
+        #             dataset_type=dataset_type,
+        #             suffix='labels')
 
         #open_file(output_pickle_dir)
 

@@ -43,10 +43,21 @@ dtype = 'complex64'
 
 
 ## Deep Generative Model
-model_name = 'M1_end_epoch_050/M1_epoch_036_vloss_465.28'
+# model_name = 'M1_end_epoch_050/M1_epoch_036_vloss_465.28'
+# x_dim = 513 # frequency bins (spectrogram)
+# z_dim = 128
+# h_dim = [256, 128]
+
+# model_name = 'M1_h128_end_epoch_100/M1_epoch_099_vloss_480.54'
+# x_dim = 513 # frequency bins (spectrogram)
+# z_dim = 128
+# h_dim = [128]
+
+model_name = 'M1_h128_z16_end_epoch_250/M1_epoch_200_vloss_477.65'
 x_dim = 513 # frequency bins (spectrogram)
-z_dim = 128
-h_dim = [256, 128]
+z_dim = 16
+h_dim = [128]
+
 
 model_data_dir = 'data/' + dataset_size + '/models/' + model_name + '/'
 
@@ -64,7 +75,7 @@ def main():
     all_snr_db = read_dataset(processed_data_dir, dataset_type, 'snr_db')
     all_snr_db = np.array(all_snr_db)
 
-    device = torch.device("cuda" if cuda else "cpu")
+    device = torch.device("cuda:0" if cuda else "cpu")
     file = open('output.log','w') 
 
     print('Torch version: {}'.format(torch.__version__))
@@ -76,7 +87,7 @@ def main():
                              dataset_type=dataset_type)
 
     model = VariationalAutoencoder([x_dim, z_dim, h_dim])
-    model.load_state_dict(torch.load(os.path.join('models', model_name + '.pt')))
+    model.load_state_dict(torch.load(os.path.join('models', model_name + '.pt'), map_location="cuda:0"))
     if cuda: model = model.cuda()
 
     model.eval()
@@ -155,8 +166,14 @@ def main():
 
         fig.suptitle(title, fontsize=40)
 
-        # Save figure
-        fig.savefig(model_data_dir + os.path.splitext(file_path)[0] + '_recon.png')
+        # Save .wav files
+        output_path = model_data_dir + file_path
+        output_path = os.path.splitext(output_path)[0]
+
+        if not os.path.exists(os.path.dirname(output_path)):
+            os.makedirs(os.path.dirname(output_path))
         
+        fig.savefig(output_path + '_recon.png')
+
 if __name__ == '__main__':
     main()

@@ -33,29 +33,18 @@ hop_percent = 0.25  # hop size as a percentage of the window length
 win = 'hann' # type of window
 dtype = 'complex64'
 
-def main():
+def process_noise():
 
-    # Create file list
-    file_paths = speech_list(input_speech_dir=input_speech_dir,
-                             dataset_type=dataset_type)
-    
-    # Create SNR list
-    np.random.seed(0)
-    
     noise_types = ['cafe', 'home', 'street', 'car']
-    noise_index = np.random.randint(len(noise_types), size=len(file_paths))
-    
-    snrs = [-5.0, 0.0, 5.0]
-    snrs_index = np.random.randint(3, size=len(file_paths))
 
     # Create noise audios
     noise_paths = noise_list(input_noise_dir=input_noise_dir,
                              dataset_type=dataset_type)
     noise_audios = {}
 
-    for key, noise_path in noise_paths.items():
+    for noise_type, noise_path in noise_paths.items():
         if dataset_type == 'test':
-            output_noise_path = output_noise_dir + 'si_et_05' + '/' + key + '.wav'
+            output_noise_path = output_noise_dir + 'si_et_05' + '/' + noise_type + '.wav'
         
         #if noise already preprocessed, read files directly
         if os.path.exists(output_noise_path):
@@ -68,13 +57,50 @@ def main():
             noise_audio, fs_noise = sf.read(input_noise_dir + noise_path)
             
             # Preprocess noise   
-            noise_audio = preprocess_noise(noise_audio, key, fs_noise, fs)
+            noise_audio = preprocess_noise(noise_audio, noise_type, fs_noise, fs)
 
             if not os.path.exists(os.path.dirname(output_noise_path)):
                 os.makedirs(os.path.dirname(output_noise_path))
             sf.write(output_noise_path, noise_audio, fs)
         
-        noise_audios[key] = noise_audio
+        noise_audios[noise_type] = noise_audio
+
+def main():
+
+    # Create file list
+    file_paths = speech_list(input_speech_dir=input_speech_dir,
+                             dataset_type=dataset_type)
+    
+    # Create SNR list
+    np.random.seed(0)
+    
+    noise_types = ['cafe', 'home', 'street', 'car']
+    #TODO: more noise index
+    noise_index = np.random.randint(len(noise_types), size=len(file_paths))
+    
+    snrs = [-5.0, 0.0, 5.0]
+    snrs_index = np.random.randint(len(snrs), size=len(file_paths))
+
+    # Create noise audios
+    noise_paths = noise_list(input_noise_dir=input_noise_dir,
+                             dataset_type=dataset_type)
+    noise_audios = {}
+
+    # Load the noise files
+    for noise_type, noise_path in noise_paths.items():
+        if dataset_type == 'test':
+            output_noise_path = output_noise_dir + 'si_et_05' + '/' + noise_type + '.wav'
+        
+        #if noise already preprocessed, read files directly
+        if os.path.exists(output_noise_path):
+            
+            noise_audio, fs_noise = sf.read(output_noise_path)
+            
+            if fs != fs_noise:
+                raise ValueError('Unexpected sampling rate')
+            
+            noise_audios[noise_type] = noise_audio
+
 
     # Create mixture
     speeches = []
@@ -82,6 +108,7 @@ def main():
     noises = []
     all_snr_dB = []
 
+    # Loop over the speech files
     for i, file_path in tqdm(enumerate(file_paths)):
 
         speech, fs_speech = sf.read(input_speech_dir + file_path, samplerate=None)
@@ -148,4 +175,5 @@ def main():
     open_file(output_pickle_dir)
 
 if __name__ == '__main__':
+    process_noise()
     main()

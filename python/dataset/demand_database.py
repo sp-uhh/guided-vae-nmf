@@ -10,6 +10,7 @@ import numpy as np
 import os
 import re
 import pickle
+import collections
 from librosa.core import resample # do not use it because slow, use pysox instead
 from python.utils import get_key
 
@@ -36,20 +37,20 @@ def noise_list(input_noise_dir, dataset_type='test'):
     if dataset_type == 'train':
 
         folder_names = {
-            'cafe': 'CAFE-CAFE-1.wav',
-            'car': 'CAR-WINDOWNB-1.wav',
-            'home': 'HOME-KITCHEN-1.wav',
-            'street': 'STREET-CITY-1.wav'
+            'domestic': 'DWASHING',
+            'nature': 'NRIVER',
+            'office': 'OOFFICE',
+            'transportation': 'TMETRO'
         }   
 
     ### Validation data
     if dataset_type == 'validation':
 
         folder_names = {
-            'cafe': 'CAFE-CAFE-1.wav',
-            'car': 'CAR-WINDOWNB-1.wav',
-            'home': 'HOME-KITCHEN-1.wav',
-            'street': 'STREET-CITY-1.wav'
+            'nature': 'NFIELD',
+            'office': 'OHALLWAY',
+            'public': 'PSTATION',
+            'transportation': 'TBUS'
         }   
 
     ### Test data
@@ -57,37 +58,16 @@ def noise_list(input_noise_dir, dataset_type='test'):
         print('Not implemented')
      
 
-    subset_noise_paths = {}
+    subset_noise_paths = collections.defaultdict(dict)
 
-    # Subset of noise_paths matching filenames
+    # Subset of noise_paths matching folder_names
     for noise_path in noise_paths:
-        condition = any([filename in noise_path for filename in filenames.values()])
+        condition = any([folder_name in noise_path for folder_name in folder_names.values()])
         if condition:
-            subset_noise_paths[get_key(filenames, os.path.basename(noise_path))] = noise_path
+            sample_id = int(''.join(filter(str.isdigit, noise_path)))
+            subset_noise_paths[get_key(folder_names, os.path.dirname(noise_path))][sample_id] = noise_path
 
     return subset_noise_paths
-
-def preprocess_noise(noise_audio, key, fs_noise, fs):
-    """[summary]
-
-    Args:
-        noise_list ([type]): [description]
-
-    Returns:
-        [type]: [description]
-    """
-    # Read the 1st channel
-    noise_audio = noise_audio[:,0]
-    
-    # Downsample to 16kHz
-    if fs != fs_noise:
-        noise_audio_resamp = resample(noise_audio, fs_noise, fs)
-
-    # Trim begin/end of noise car
-    if key == 'car':
-        noise_audio_resamp = noise_audio_resamp[int(1.5*60*fs):int(43*60*fs)] # Extract part between 1.5min and 43min
-
-    return noise_audio_resamp
 
 def noise_segment(noise_audios, noise_type, speech):
     """[summary]

@@ -14,8 +14,8 @@ from python.models.utils import elbo
 ##################################### SETTINGS #####################################################
 
 # Dataset
-dataset_size = 'subset'
-# dataset_size = 'complete'
+# dataset_size = 'subset'
+dataset_size = 'complete'
 
 # System 
 cuda = torch.cuda.is_available()
@@ -36,7 +36,7 @@ batch_size = 128
 learning_rate = 1e-3
 log_interval = 250
 start_epoch = 1
-end_epoch = 50
+end_epoch = 100
 
 #####################################################################################################
 
@@ -62,7 +62,7 @@ print('- Number of validation samples: {}'.format(len(valid_dataset)))
 
 def main():
     print('Create model')
-    model = DeepGenerativeModel([x_dim, y_dim, z_dim, h_dim])
+    model = DeepGenerativeModel([x_dim, y_dim, z_dim, h_dim], None)
     if cuda: model = model.to(device, non_blocking=non_blocking)
 
     # Create model folder

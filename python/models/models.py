@@ -147,13 +147,13 @@ class VariationalAutoencoder(nn.Module):
 
 
 class DeepGenerativeModel(VariationalAutoencoder):
-    def __init__(self, dims):
+    def __init__(self, dims, classifier):
         [x_dim, self.y_dim, z_dim, h_dim] = dims
         super(DeepGenerativeModel, self).__init__([x_dim, z_dim, h_dim])
 
         self.encoder = Encoder([x_dim + self.y_dim, h_dim, z_dim])
         self.decoder = Decoder([z_dim + self.y_dim, list(reversed(h_dim)), x_dim])
-        self.classifier = Classifier([x_dim, h_dim[0], self.y_dim])
+        self.classifier = classifier 
 
         for m in self.modules():
             if isinstance(m, nn.Linear):

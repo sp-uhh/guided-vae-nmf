@@ -3,6 +3,7 @@ import sys
 import torch
 import pickle
 import numpy as np
+from tqdm import tqdm
 
 sys.path.append('.')
 
@@ -15,13 +16,14 @@ from python.models.utils import binary_cross_entropy, f1_loss
 ##################################### SETTINGS #####################################################
 
 # Dataset
-dataset_size = 'subset'
-# dataset_size = 'complete'
+# dataset_size = 'subset'
+dataset_size = 'complete'
 
 # System 
 cuda = torch.cuda.is_available()
-device = torch.device("cuda" if cuda else "cpu")
-num_workers = 0
+cuda_device = "cuda:0"
+device = torch.device(cuda_device if cuda else "cpu")
+num_workers = 8
 pin_memory = True
 non_blocking = True
 eps = 1e-8
@@ -32,7 +34,7 @@ y_dim = 513
 h_dim = [128, 128]
 
 # Training
-batch_size = 16
+batch_size = 128
 learning_rate = 1e-3
 log_interval = 250
 start_epoch = 1
@@ -46,15 +48,15 @@ print('Load data')
 train_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_tr_s_frames.p'), 'rb'))
 valid_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_dt_05_frames.p'), 'rb'))
 
-# Normalize train_data, valid_data
-mean = np.mean(train_data, axis=1)[:, None]
-std = np.std(train_data, axis=1, ddof=1)[:, None]
+# # Normalize train_data, valid_data
+# mean = np.mean(train_data, axis=1)[:, None]
+# std = np.std(train_data, axis=1, ddof=1)[:, None]
 
-train_data -= mean
-valid_data -= mean
+# train_data -= mean
+# valid_data -= mean
 
-train_data /= (std + eps)
-valid_data /= (std + eps)
+# train_data /= (std + eps)
+# valid_data /= (std + eps)
 
 train_labels = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_tr_s_labels.p'), 'rb'))
 valid_labels = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_dt_05_labels.p'), 'rb'))
@@ -82,9 +84,9 @@ def main():
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
 
-    # Save mean and variance
-    np.save(model_dir + '/' + 'trainset_mean.npy', mean)
-    np.save(model_dir + '/' + 'trainset_std.npy', std)
+    # # Save mean and variance
+    # np.save(model_dir + '/' + 'trainset_mean.npy', mean)
+    # np.save(model_dir + '/' + 'trainset_std.npy', std)
 
     # Start log file
     file = open(model_dir + '/' +'output_batch.log','w') 
@@ -101,7 +103,7 @@ def main():
     for epoch in range(start_epoch, end_epoch):
         model.train()
         total_loss, total_tp, total_tn, total_fp, total_fn = (0, 0, 0, 0, 0)
-        for batch_idx, (x, y) in enumerate(train_loader):
+        for batch_idx, (x, y) in tqdm(enumerate(train_loader)):
             if cuda:
                 x, y = x.to(device, non_blocking=non_blocking), y.to(device, non_blocking=non_blocking)
 

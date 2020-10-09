@@ -2,6 +2,7 @@ import os
 import sys
 import torch
 import pickle
+from tqdm import tqdm
 
 sys.path.append('.')
 
@@ -19,7 +20,8 @@ dataset_size = 'complete'
 
 # System 
 cuda = torch.cuda.is_available()
-device = torch.device("cuda" if cuda else "cpu")
+cuda_device = "cuda:3"
+device = torch.device(cuda_device if cuda else "cpu")
 num_workers = 8
 pin_memory = True
 non_blocking = True
@@ -27,8 +29,8 @@ eps = 1e-8
 
 # Deep Generative Model
 x_dim = 513 
-y_dim = 513
-z_dim = 16
+y_dim = 1
+z_dim = 32
 h_dim = [128, 128]
 
 # Training
@@ -38,14 +40,16 @@ log_interval = 250
 start_epoch = 1
 end_epoch = 100
 
+model_name = 'M2_VAD_hdim_{:03d}_{:03d}_zdim_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], z_dim, end_epoch)
+
 #####################################################################################################
 
 print('Load data')
 train_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_tr_s_frames.p'), 'rb'))
 valid_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_dt_05_frames.p'), 'rb'))
 
-train_labels = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_tr_s_labels.p'), 'rb'))
-valid_labels = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_dt_05_labels.p'), 'rb'))
+train_labels = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_tr_s_vad_labels.p'), 'rb'))
+valid_labels = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_dt_05_vad_labels.p'), 'rb'))
 
 train_dataset = SpectrogramLabeledFrames(train_data, train_labels)
 valid_dataset = SpectrogramLabeledFrames(valid_data, valid_labels)
@@ -66,9 +70,9 @@ def main():
     if cuda: model = model.to(device, non_blocking=non_blocking)
 
     # Create model folder
-    model_dir = os.path.join('models', 'M2_end_epoch_{:03d}'.format(end_epoch))
+    model_dir = os.path.join('models', model_name)
     if not os.path.exists(model_dir):
-        os.makedirs(model_dir)
+        os.makedirs(model_dir)      
 
     # Start log file
     file = open(model_dir + '/' +'output_batch.log','w') 
@@ -85,7 +89,7 @@ def main():
     for epoch in range(start_epoch, end_epoch):
         model.train()
         total_elbo, total_likelihood, total_kl = (0, 0, 0)
-        for batch_idx, (x, y) in enumerate(train_loader):
+        for batch_idx, (x, y) in tqdm(enumerate(train_loader)):
             if cuda:
                 x, y = x.to(device, non_blocking=non_blocking), y.to(device, non_blocking=non_blocking)
 

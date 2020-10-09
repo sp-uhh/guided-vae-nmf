@@ -45,9 +45,11 @@ class Classifier(nn.Module):
         neurons = [x_dim, *h_dim]
         linear_layers = []
         for i in range(1, len(neurons)):
-            if batch_norm:
-                linear_layers.append(nn.BatchNorm1d(neurons[i-1]))
+            # if batch_norm:
+            #     linear_layers.append(nn.BatchNorm1d(neurons[i-1]))
             linear_layers.append(nn.Linear(neurons[i-1], neurons[i]))
+            if batch_norm:
+                linear_layers.append(nn.BatchNorm1d(neurons[i]))
 
         self.hidden = nn.ModuleList(linear_layers)
         self.output_layer = nn.Linear(h_dim[-1], y_dim)

@@ -3,7 +3,7 @@ sys.path.append('.')
 
 from python.dataset.csr1_wjs0_dataset import speech_list
 from python.processing.stft import stft
-from python.processing.target import clean_speech_IBM
+from python.processing.target import clean_speech_IBM, clean_speech_VAD
 import soundfile as sf
 import numpy as np
 
@@ -24,6 +24,7 @@ fs = int(16e3) # Sampling rate
 wlen_sec = 64e-3 # window length in seconds
 hop_percent = 0.25  # hop size as a percentage of the window length
 win = 'hann' # type of window
+dtype = 'complex64'
 
 ## IBM
 quantile_fraction = 0.98
@@ -55,13 +56,24 @@ def main():
                     win=win,
                     hop_percent=hop_percent) # shape = (freq_bins, frames)
 
-        # binary mask
-        x_ibm = clean_speech_IBM(x_tf,
-                                quantile_fraction=quantile_fraction,
-                                quantile_weight=quantile_weight)
+        # # binary mask
+        # x_ibm = clean_speech_IBM(x_tf,
+        #                         quantile_fraction=quantile_fraction,
+        #                         quantile_weight=quantile_weight)
+        
+        # compute only VAD
+        x_vad = clean_speech_VAD(x_tf,
+                        quantile_fraction=quantile_fraction,
+                        quantile_weight=quantile_weight)
 
-        # Plot waveplot + spectrogram + binary mask
-        fig = display_wav_spectro_mask(x, x_tf, x_ibm,
+        # # Plot waveplot + spectrogram + binary mask
+        # fig = display_wav_spectro_mask(x, x_tf, x_ibm,
+        #                          fs=fs, vmin=vmin, vmax=vmax,
+        #                          wlen_sec=wlen_sec, hop_percent=hop_percent,
+        #                          xticks_sec=xticks_sec, fontsize=fontsize)
+        
+        # Plot waveplot + spectrogram + vad
+        fig = display_wav_spectro_mask(x, x_tf,x_vad,
                                  fs=fs, vmin=vmin, vmax=vmax,
                                  wlen_sec=wlen_sec, hop_percent=hop_percent,
                                  xticks_sec=xticks_sec, fontsize=fontsize)
@@ -85,7 +97,8 @@ def main():
         fig.suptitle(title, fontsize=40)
 
         # Save figure
-        output_path = output_data_dir + os.path.splitext(path)[0] + '_fig.png'
+        # output_path = output_data_dir + os.path.splitext(path)[0] + '_fig.png'
+        output_path = output_data_dir + os.path.splitext(path)[0] + '_fig_vad.png'
         if not os.path.exists(os.path.dirname(output_path)):
             os.makedirs(os.path.dirname(output_path))
         fig.savefig(output_path)

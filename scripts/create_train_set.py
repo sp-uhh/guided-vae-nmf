@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 from python.dataset.csr1_wjs0_dataset import speech_list, write_dataset
 from python.processing.stft import stft
-from python.processing.target import clean_speech_IBM
+from python.processing.target import clean_speech_IBM, clean_speech_VAD
 from python.utils import open_file
 
 
@@ -16,8 +16,8 @@ from python.utils import open_file
 ## Dataset
 dataset_types = ['train', 'validation']
 
-dataset_size = 'subset'
-#dataset_size = 'complete'
+# dataset_size = 'subset'
+dataset_size = 'complete'
 
 input_speech_dir = os.path.join('data', dataset_size, 'raw/')
 
@@ -68,16 +68,22 @@ def main():
                 speech_tf = stft(speech, fs=fs, wlen_sec=wlen_sec, win=win, 
                     hop_percent=hop_percent, dtype=dtype)
 
-                # binary mask
-                speech_ibm = clean_speech_IBM(speech_tf,
+                # # binary mask
+                # speech_ibm = clean_speech_IBM(speech_tf,
+                #                         quantile_fraction=quantile_fraction,
+                #                         quantile_weight=quantile_weight)
+                                    
+                # vad
+                speech_vad = clean_speech_VAD(speech_tf,
                                         quantile_fraction=quantile_fraction,
                                         quantile_weight=quantile_weight)
                 
                 if iteration == 0:
-                    labels.append(speech_ibm)
+                    # labels.append(speech_ibm)
+                    labels.append(speech_vad)
 
-                if iteration == 1:
-                    spectrograms.append(np.power(abs(speech_tf), 2))
+                # if iteration == 1:
+                #     spectrograms.append(np.power(abs(speech_tf), 2))
 
             if iteration == 0:
                 labels = np.concatenate(labels, axis=1)
@@ -86,19 +92,19 @@ def main():
                 write_dataset(labels,
                             output_data_dir=output_pickle_dir,
                             dataset_type=dataset_type,
-                            suffix='labels')
+                            suffix='vad_labels')
 
                 del labels            
 
-            if iteration == 1:          
-                spectrograms = np.concatenate(spectrograms, axis=1)
-                # write spectrograms
-                write_dataset(spectrograms,
-                            output_data_dir=output_pickle_dir,
-                            dataset_type=dataset_type,
-                            suffix='frames')
+            # if iteration == 1:          
+            #     spectrograms = np.concatenate(spectrograms, axis=1)
+            #     # write spectrograms
+            #     write_dataset(spectrograms,
+            #                 output_data_dir=output_pickle_dir,
+            #                 dataset_type=dataset_type,
+            #                 suffix='frames')
 
-                del spectrograms
+            #     del spectrograms
 
 
 

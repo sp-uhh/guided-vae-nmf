@@ -43,6 +43,7 @@ def clean_speech_VAD(observations,
     vad = np.round(vad) # to have either 0 or 1 values
     if vad.dtype != 'float32':
         vad = np.float32(vad) # convert to float32
+    vad = vad[None] # vad.shape = (1, frames)
     return vad
 
 def noise_aware_IRM(*input, feature_dim=-2, source_dim=-1,

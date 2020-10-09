@@ -2,6 +2,7 @@ import os
 import sys
 import torch
 import pickle
+import numpy as np
 
 sys.path.append('.')
 
@@ -14,13 +15,13 @@ from python.models.utils import binary_cross_entropy, f1_loss
 ##################################### SETTINGS #####################################################
 
 # Dataset
-# dataset_size = 'subset'
-dataset_size = 'complete'
+dataset_size = 'subset'
+# dataset_size = 'complete'
 
 # System 
 cuda = torch.cuda.is_available()
 device = torch.device("cuda" if cuda else "cpu")
-num_workers = 8
+num_workers = 0
 pin_memory = True
 non_blocking = True
 eps = 1e-8
@@ -28,20 +29,32 @@ eps = 1e-8
 # Deep Generative Model
 x_dim = 513 
 y_dim = 513
-h_dim = 128
+h_dim = [128, 128]
 
 # Training
-batch_size = 128
+batch_size = 16
 learning_rate = 1e-3
 log_interval = 250
 start_epoch = 1
 end_epoch = 50
+
+model_name = 'classif_hdim_{:03d}_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], end_epoch)
 
 #####################################################################################################
 
 print('Load data')
 train_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_tr_s_frames.p'), 'rb'))
 valid_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_dt_05_frames.p'), 'rb'))
+
+# Normalize train_data, valid_data
+mean = np.mean(train_data, axis=1)[:, None]
+std = np.std(train_data, axis=1, ddof=1)[:, None]
+
+train_data -= mean
+valid_data -= mean
+
+train_data /= (std + eps)
+valid_data /= (std + eps)
 
 train_labels = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_tr_s_labels.p'), 'rb'))
 valid_labels = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_dt_05_labels.p'), 'rb'))
@@ -65,9 +78,13 @@ def main():
     if cuda: model = model.to(device, non_blocking=non_blocking)
 
     # Create model folder
-    model_dir = os.path.join('models', 'Classifier_end_epoch_{:03d}'.format(end_epoch))
+    model_dir = os.path.join('models', model_name)
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
+
+    # Save mean and variance
+    np.save(model_dir + '/' + 'trainset_mean.npy', mean)
+    np.save(model_dir + '/' + 'trainset_std.npy', std)
 
     # Start log file
     file = open(model_dir + '/' +'output_batch.log','w') 

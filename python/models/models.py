@@ -42,13 +42,17 @@ class Classifier(nn.Module):
     def __init__(self, dims):
         super(Classifier, self).__init__()
         [x_dim, h_dim, y_dim] = dims
-        self.input_layer = nn.Linear(x_dim, h_dim)
-        self.output_layer = nn.Linear(h_dim, y_dim)
+        neurons = [x_dim, *h_dim]
+        linear_layers = [nn.Linear(neurons[i-1], neurons[i]) for i in range(1, len(neurons))]
+
+        self.hidden = nn.ModuleList(linear_layers)
+        self.output_layer = nn.Linear(h_dim[-1], y_dim)
 
     def forward(self, x):
         #TODO: maybe modify activation functions?
-        h = F.relu(self.input_layer(x))
-        y = torch.sigmoid(self.output_layer(h))
+        for layer in self.hidden:
+            x = torch.relu(layer(x))
+        y = torch.sigmoid(self.output_layer(x))
         return y
 
 

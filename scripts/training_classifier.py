@@ -21,7 +21,7 @@ dataset_size = 'complete'
 
 # System 
 cuda = torch.cuda.is_available()
-cuda_device = "cuda:1"
+cuda_device = "cuda:2"
 device = torch.device(cuda_device if cuda else "cpu")
 num_workers = 8
 pin_memory = True
@@ -32,6 +32,7 @@ eps = 1e-8
 x_dim = 513 
 y_dim = 513
 h_dim = [128, 128]
+batch_norm=True
 
 # Training
 batch_size = 128
@@ -40,7 +41,7 @@ log_interval = 250
 start_epoch = 1
 end_epoch = 100
 
-model_name = 'classif_normdataset_hdim_{:03d}_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], end_epoch)
+model_name = 'classif_batchnorm_hdim_{:03d}_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], end_epoch)
 
 #####################################################################################################
 
@@ -48,15 +49,15 @@ print('Load data')
 train_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_tr_s_noisy_frames.p'), 'rb'))
 valid_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_dt_05_noisy_frames.p'), 'rb'))
 
-# Normalize train_data, valid_data
-mean = np.mean(train_data, axis=1)[:, None]
-std = np.std(train_data, axis=1, ddof=1)[:, None]
+# # Normalize train_data, valid_data
+# mean = np.mean(train_data, axis=1)[:, None]
+# std = np.std(train_data, axis=1, ddof=1)[:, None]
 
-train_data -= mean
-valid_data -= mean
+# train_data -= mean
+# valid_data -= mean
 
-train_data /= (std + eps)
-valid_data /= (std + eps)
+# train_data /= (std + eps)
+# valid_data /= (std + eps)
 
 train_labels = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_tr_s_noisy_labels.p'), 'rb'))
 valid_labels = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_dt_05_noisy_labels.p'), 'rb'))
@@ -76,7 +77,7 @@ print('- Number of validation samples: {}'.format(len(valid_dataset)))
 
 def main():
     print('Create model')
-    model = Classifier([x_dim, h_dim, y_dim])
+    model = Classifier([x_dim, h_dim, y_dim], batch_norm=batch_norm)
     if cuda: model = model.to(device, non_blocking=non_blocking)
 
     # Create model folder
@@ -84,9 +85,9 @@ def main():
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
 
-    # Save mean and variance
-    np.save(model_dir + '/' + 'trainset_mean.npy', mean)
-    np.save(model_dir + '/' + 'trainset_std.npy', std)
+    # # Save mean and variance
+    # np.save(model_dir + '/' + 'trainset_mean.npy', mean)
+    # np.save(model_dir + '/' + 'trainset_std.npy', std)
 
     # Start log file
     file = open(model_dir + '/' +'output_batch.log','w') 

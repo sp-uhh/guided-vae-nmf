@@ -24,6 +24,27 @@ def clean_speech_IBM(observations,
         mask = np.float32(mask) # convert to float32
     return mask
 
+def clean_speech_VAD(observations,
+                     quantile_fraction=0.98,
+                     quantile_weight=0.999):
+    """ Calculate softened mask according to lorenz function criterion.
+    :param observation: STFT of the the observed signal
+    :param quantile_fraction: Fraction of observations which are rated down
+    :param quantile_weight: Governs the influence of the mask
+    :return: quantile_mask
+    """
+    power = abs(observations * observations.conj())
+    power = power.sum(axis=0) # sum energy of all frequencies
+    sorted_power = np.sort(power, axis=None)[::-1]
+    lorenz_function = np.cumsum(sorted_power) / np.sum(sorted_power)
+    threshold = np.min(sorted_power[lorenz_function < quantile_fraction])
+    vad = power > threshold
+    vad = 0.5 + quantile_weight * (vad - 0.5)
+    vad = np.round(vad) # to have either 0 or 1 values
+    if vad.dtype != 'float32':
+        vad = np.float32(vad) # convert to float32
+    return vad
+
 def noise_aware_IRM(*input, feature_dim=-2, source_dim=-1,
                            tuple_output=False):
     """

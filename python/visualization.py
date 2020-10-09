@@ -69,8 +69,15 @@ def display_spectrogram(complex_spec,
     if convert_to_db:
         amplitude_spec = librosa.core.amplitude_to_db(amplitude_spec)
 
+    # Trick to plot VAD
+    if amplitude_spec.ndim == 1:
+        freq_bins = 513
+        amplitude_spec = np.repeat(amplitude_spec[None], freq_bins, axis=0)
+
     # librosa.display.specshow params
     freq_bins, frames = amplitude_spec.shape
+
+    
     sr=int(fs/1e3) # to make yticks concise
     nfft = int(wlen_sec * fs) # STFT window length in samples
     hop_length = int(hop_percent * nfft) # hop size in samples
@@ -148,6 +155,50 @@ def display_power_spectro(psd,
     return img
 
 def display_wav_spectro_mask(x,
+                             x_tf,
+                             x_ibm,
+                             fs=16e3,
+                             vmin=-60,
+                             vmax=10,
+                             wlen_sec=50e-3,
+                             hop_percent=0.5,
+                             xticks_sec=1.0,
+                             fontsize=50):
+        
+    # Plot waveplot + spectrogram + binary mask
+    fig = plt.figure(figsize=(20,25))
+
+    # create a 2 X 2 grid
+    gs = grd.GridSpec(3, 2,
+                    height_ratios=[5,10,10],
+                    width_ratios=[10,0.5],
+                    wspace=0.1,
+                    hspace=0.3,
+                    left=0.08)
+
+    # line plot
+    ax = plt.subplot(gs[0])
+    display_waveplot(x=x, fs=fs, xticks_sec=xticks_sec, fontsize=fontsize)
+
+    # image plot
+    ax = plt.subplot(gs[2])
+    display_spectrogram(x_tf, True, fs, vmin, vmax, wlen_sec, hop_percent, xticks_sec, 'magma', fontsize)
+
+    # color bar in it's own axis
+    colorAx = plt.subplot(gs[3])
+    cbar = plt.colorbar(cax=colorAx, format='%+2.0f dB')
+
+    # image plot
+    ax = plt.subplot(gs[4])
+    display_spectrogram(x_ibm, False, fs, 0, 1, wlen_sec, hop_percent, xticks_sec, 'Greys_r', fontsize)
+
+    # color bar in it's own axis
+    colorAx = plt.subplot(gs[5])
+    plt.colorbar(cax=colorAx, format='%0.1f')
+
+    return fig
+
+def display_wav_spectro_ma(x,
                              x_tf,
                              x_ibm,
                              fs=16e3,

@@ -281,19 +281,21 @@ def display_multiple_signals(signal_list,
 
     for i, [x, x_tf, x_ibm] in enumerate(signal_list):
 
-        # line plot
-        ax = plt.subplot(gs[3*i])
-        display_waveplot(x=x, fs=fs, xticks_sec=xticks_sec, fontsize=fontsize)
+        if not (x is None):
+            # line plot
+            ax = plt.subplot(gs[3*i])
+            display_waveplot(x=x, fs=fs, xticks_sec=xticks_sec, fontsize=fontsize)
 
-        # image plot
-        #ax = plt.subplot(gs[(i+2)])
-        ax = plt.subplot(gs[3*(i+3)])
-        display_spectrogram(x_tf, True, fs, vmin, vmax, wlen_sec, hop_percent, xticks_sec, 'magma', fontsize)
+        if not (x_tf is None):
+            # image plot
+            #ax = plt.subplot(gs[(i+2)])
+            ax = plt.subplot(gs[3*(i+3)])
+            display_spectrogram(x_tf, True, fs, vmin, vmax, wlen_sec, hop_percent, xticks_sec, 'magma', fontsize)
 
-        # color bar in it's own axis
-        #colorAx = plt.subplot(gs[(i+2)*nb_signals + 1])
-        colorAx = plt.subplot(gs[3*(i+3) + 1])
-        cbar = plt.colorbar(cax=colorAx, format='%+2.0f dB')
+            # color bar in it's own axis
+            #colorAx = plt.subplot(gs[(i+2)*nb_signals + 1])
+            colorAx = plt.subplot(gs[3*(i+3) + 1])
+            cbar = plt.colorbar(cax=colorAx, format='%+2.0f dB')
 
         if not (x_ibm is None):
             # image plot

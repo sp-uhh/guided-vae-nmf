@@ -2,6 +2,8 @@ import os
 import sys
 import torch
 import pickle
+import numpy as np
+from tqdm import tqdm
 
 sys.path.append('.')
 
@@ -19,7 +21,8 @@ dataset_size = 'complete'
 
 # System 
 cuda = torch.cuda.is_available()
-device = torch.device("cuda" if cuda else "cpu")
+cuda_device = "cuda:2"
+device = torch.device(cuda_device if cuda else "cpu")
 num_workers = 8
 pin_memory = True
 non_blocking = True
@@ -28,23 +31,36 @@ eps = 1e-8
 # Deep Generative Model
 x_dim = 513 
 y_dim = 513
-h_dim = 128
+h_dim = [128, 128]
+batch_norm=True
 
 # Training
 batch_size = 128
 learning_rate = 1e-3
 log_interval = 250
 start_epoch = 1
-end_epoch = 50
+end_epoch = 100
+
+model_name = 'classif_batchnorm_hdim_{:03d}_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], end_epoch)
 
 #####################################################################################################
 
 print('Load data')
-train_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_tr_s_frames.p'), 'rb'))
-valid_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_dt_05_frames.p'), 'rb'))
+train_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_tr_s_noisy_frames.p'), 'rb'))
+valid_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_dt_05_noisy_frames.p'), 'rb'))
 
-train_labels = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_tr_s_labels.p'), 'rb'))
-valid_labels = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_dt_05_labels.p'), 'rb'))
+# # Normalize train_data, valid_data
+# mean = np.mean(train_data, axis=1)[:, None]
+# std = np.std(train_data, axis=1, ddof=1)[:, None]
+
+# train_data -= mean
+# valid_data -= mean
+
+# train_data /= (std + eps)
+# valid_data /= (std + eps)
+
+train_labels = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_tr_s_noisy_labels.p'), 'rb'))
+valid_labels = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_dt_05_noisy_labels.p'), 'rb'))
 
 train_dataset = SpectrogramLabeledFrames(train_data, train_labels)
 valid_dataset = SpectrogramLabeledFrames(valid_data, valid_labels)
@@ -61,13 +77,17 @@ print('- Number of validation samples: {}'.format(len(valid_dataset)))
 
 def main():
     print('Create model')
-    model = Classifier([x_dim, h_dim, y_dim])
+    model = Classifier([x_dim, h_dim, y_dim], batch_norm=batch_norm)
     if cuda: model = model.to(device, non_blocking=non_blocking)
 
     # Create model folder
-    model_dir = os.path.join('models', 'Classifier_end_epoch_{:03d}'.format(end_epoch))
+    model_dir = os.path.join('models', model_name)
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
+
+    # # Save mean and variance
+    # np.save(model_dir + '/' + 'trainset_mean.npy', mean)
+    # np.save(model_dir + '/' + 'trainset_std.npy', std)
 
     # Start log file
     file = open(model_dir + '/' +'output_batch.log','w') 
@@ -84,7 +104,7 @@ def main():
     for epoch in range(start_epoch, end_epoch):
         model.train()
         total_loss, total_tp, total_tn, total_fp, total_fn = (0, 0, 0, 0, 0)
-        for batch_idx, (x, y) in enumerate(train_loader):
+        for batch_idx, (x, y) in tqdm(enumerate(train_loader)):
             if cuda:
                 x, y = x.to(device, non_blocking=non_blocking), y.to(device, non_blocking=non_blocking)
 

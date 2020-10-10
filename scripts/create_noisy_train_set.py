@@ -17,8 +17,8 @@ from python.utils import open_file
 ## Dataset
 dataset_types = ['train', 'validation']
 
-dataset_size = 'subset'
-#dataset_size = 'complete'
+# dataset_size = 'subset'
+dataset_size = 'complete'
 
 input_speech_dir = os.path.join('data', dataset_size, 'raw/')
 
@@ -38,6 +38,8 @@ dtype = 'complex64'
 ## Ideal binary mask
 quantile_fraction = 0.98
 quantile_weight = 0.999
+
+
 def process_noise():
 
     for dataset_type in dataset_types:
@@ -106,7 +108,7 @@ def main():
         
         noise_index = np.random.randint(len(noise_types), size=len(file_paths))
         
-        snrs = [0, 2.5, 5.0]
+        snrs = [-5, -2.5, 0, 2.5, 5.0]
         snrs_index = np.random.randint(len(snrs), size=len(file_paths))
         
         # Create noise audios

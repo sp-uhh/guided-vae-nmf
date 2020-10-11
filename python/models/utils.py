@@ -84,8 +84,9 @@ def U_loss(x, r, mu, logvar, y_hat_soft, eps):
     H = -torch.mul(y_hat_soft, torch.log(y_hat_soft + eps)) - torch.mul(1-y_hat_soft, torch.log(1-y_hat_soft + eps))
     L = torch.sum(torch.mul(y_hat_soft, L), dim=-1)
 
-    # Equivalent to -U(x)
-    U = torch.mean(L + H[:,0])
+    # Equivalent to U(x)
+    #U = torch.mean(L + H[:,0]) # wrong sign
+    U = torch.mean(L - H[:,0])
     L = torch.mean(L)
     return U, L, torch.mean(recon), torch.mean(KL)
 

@@ -128,12 +128,12 @@ def main():
             model.eval()
 
             print("Epoch: {}".format(epoch))
-            print("[Train]\t\t U: {:.2f}, L: {:.2f}, Recon.: {:.2f}, KL: {:.2f}"\
+            print("[Train]\t\t U: {:.10f}, L: {:.2f}, Recon.: {:.2f}, KL: {:.2f}"\
                 "".format(total_U / t, total_L / t, total_likelihood / t, total_kl / t))
 
             # Save to log
             print(("Epoch: {}".format(epoch)), file=open(model_dir + '/' + 'output_epoch.log','a'))
-            print(("[Train]\t\t U: {:.2f}, L: {:.2f}, Recon.: {:.2f}, KL: {:.2f}"\
+            print(("[Train]\t\t U: {:.10f}, L: {:.2f}, Recon.: {:.2f}, KL: {:.2f}"\
                 "".format(total_U / t, total_L / t, total_likelihood / t, total_kl / t)),
                 file=open(model_dir + '/' + 'output_epoch.log','a'))
 
@@ -160,10 +160,10 @@ def main():
                 total_likelihood += recon_loss.item()
                 total_kl += KL.item()
   
-            print("[Validation]\t U: {:.2f}, L: {:.2f}, Recon.: {:.2f}, KL: {:.2f}"\
+            print("[Validation]\t U: {:.10f}, L: {:.2f}, Recon.: {:.2f}, KL: {:.2f}"\
                 "".format(total_U / m, total_L, total_likelihood / m, total_kl / m))
 
-            print(("[Validation]\t U: {:.2f}, L: {:.2f}, Recon.: {:.2f}, KL: {:.2f}"\
+            print(("[Validation]\t U: {:.10f}, L: {:.2f}, Recon.: {:.2f}, KL: {:.2f}"\
                 "".format(total_U / m, total_L / m, total_likelihood / m, total_kl / m)),
                 file=open(model_dir + '/' + 'output_epoch.log','a'))
 

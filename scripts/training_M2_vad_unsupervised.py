@@ -15,8 +15,8 @@ from python.models.utils import L_loss, U_loss
 ##################################### SETTINGS #####################################################
 
 # Dataset
-dataset_size = 'subset'
-# dataset_size = 'complete'
+# dataset_size = 'subset'
+dataset_size = 'complete'
 
 # System 
 cuda = torch.cuda.is_available()

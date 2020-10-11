@@ -70,10 +70,22 @@ dtype = 'complex64'
 # h_dim = [128]
 # eps = 1e-5
 
-model_name = 'M1_ISv2_h128_z032_end_epoch_250/M1_epoch_200_vloss_467.95'
+# model_name = 'M1_ISv2_h128_z032_end_epoch_250/M1_epoch_200_vloss_467.95'
+# x_dim = 513 # frequency bins (spectrogram)
+# z_dim = 32
+# h_dim = [128]
+# eps = 1e-8
+
+# model_name = 'M1_hdim_128_128_zdim_032_end_epoch_200/M1_epoch_085_vloss_479.69'
+# x_dim = 513 # frequency bins (spectrogram)
+# z_dim = 32
+# h_dim = [128, 128]
+# eps = 1e-8
+
+model_name = 'M1_end_epoch_200/M1_epoch_085_vloss_475.56'
 x_dim = 513 # frequency bins (spectrogram)
-z_dim = 32
-h_dim = [128]
+z_dim = 16
+h_dim = [128, 128]
 eps = 1e-8
 
 ## Monte-Carlo EM

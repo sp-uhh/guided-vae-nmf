@@ -50,12 +50,12 @@ quantile_fraction = 0.98
 quantile_weight = 0.999
 
 ## Classifier
-model_name = 'classif_normdataset_hdim_128_128_end_epoch_100/Classifier_epoch_096_vloss_57.53'
-x_dim = 513 # frequency bins (spectrogram)
-y_dim = 513
-h_dim = [128, 128]
-std_norm = True
-eps = 1e-8
+# model_name = 'classif_normdataset_hdim_128_128_end_epoch_100/Classifier_epoch_096_vloss_57.53'
+# x_dim = 513 # frequency bins (spectrogram)
+# y_dim = 513
+# h_dim = [128, 128]
+# std_norm = True
+# eps = 1e-8
 
 # model_name = 'classif_hdim_128_128_end_epoch_100/Classifier_epoch_096_vloss_71.65'
 # x_dim = 513 # frequency bins (spectrogram)
@@ -63,6 +63,14 @@ eps = 1e-8
 # h_dim = [128, 128]
 # std_norm = False
 # eps = 1e-8
+
+model_name = 'classif_batchnorm_before_hdim_128_128_end_epoch_100/Classifier_epoch_096_vloss_59.58'
+x_dim = 513 # frequency bins (spectrogram)
+y_dim = 513
+h_dim = [128, 128]
+batch_norm = True
+std_norm = False
+eps = 1e-8
 
 model_dir = os.path.join('models', model_name + '.pt')
 model_data_dir = 'data/' + dataset_size + '/models/' + model_name + '/'
@@ -100,7 +108,7 @@ def main():
     file_paths = speech_list(input_speech_dir=input_speech_dir,
                              dataset_type=dataset_type)
 
-    model = Classifier([x_dim, h_dim, y_dim])
+    model = Classifier([x_dim, h_dim, y_dim], batch_norm=batch_norm)
     model.load_state_dict(torch.load(model_dir, map_location=cuda_device))
     if cuda: model = model.cuda()
 

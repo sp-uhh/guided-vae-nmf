@@ -181,3 +181,24 @@ def timo_mask_estimation(spectrogram):
         mask[:,i] = v_spp
     
     return mask
+
+def timo_vad_estimation(spectrogram):
+    """
+    Run SPPNoiseEstimator on the whole power spectrogram
+
+    Args:
+        spectrogram ([type]): power spectrogram of noisy speech (i.e. |Y|^2)
+    """
+    
+    spectrogram_sum = spectrogram.sum(axis=0)
+    frame_length = 0 # sum all freq_bins
+
+    spp_estimator = SPPNoiseEstimator(frame_length=frame_length)
+
+    vad = np.zeros_like(spectrogram_sum)
+
+    for i, frame in enumerate(spectrogram_sum):
+        v_noise_psd, v_spp = spp_estimator.update(frame)
+        vad[i] = v_spp
+    
+    return vad

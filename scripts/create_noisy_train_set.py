@@ -9,7 +9,7 @@ from tqdm import tqdm
 from python.dataset.csr1_wjs0_dataset import speech_list, write_dataset
 from python.dataset.demand_database import noise_list, preprocess_noise, noise_segment
 from python.processing.stft import stft
-from python.processing.target import clean_speech_IBM
+from python.processing.target import clean_speech_IBM, clean_speech_VAD
 from python.utils import open_file
 
 
@@ -17,8 +17,8 @@ from python.utils import open_file
 ## Dataset
 dataset_types = ['train', 'validation']
 
-# dataset_size = 'subset'
-dataset_size = 'complete'
+dataset_size = 'subset'
+# dataset_size = 'complete'
 
 input_speech_dir = os.path.join('data', dataset_size, 'raw/')
 
@@ -140,7 +140,8 @@ def main():
         all_snr_dB = []
 
         # Do 2 iterations to save separately noisy_spectro and noisy_labels (RAM issues)
-        for iteration in range(2):
+        # for iteration in range(2):
+        for iteration in range(1):
 
             # Loop over the speech files
             for i, file_path in tqdm(enumerate(file_paths)):
@@ -203,14 +204,20 @@ def main():
                                             quantile_fraction=quantile_fraction,
                                             quantile_weight=quantile_weight)
                     noisy_labels.append(speech_ibm)
+                    
+                    # # binary mask
+                    # speech_vad = clean_speech_VAD(speech_tf,
+                    #                         quantile_fraction=quantile_fraction,
+                    #                         quantile_weight=quantile_weight)
+                    # noisy_labels.append(speech_vad)
 
-                if iteration == 1:
-                    # TF reprepsentation
-                    mixture_tf = stft(mixture, fs=fs, wlen_sec=wlen_sec, win=win, 
-                        hop_percent=hop_percent, dtype=dtype)
+                # if iteration == 1:
+                #     # TF reprepsentation
+                #     mixture_tf = stft(mixture, fs=fs, wlen_sec=wlen_sec, win=win, 
+                #         hop_percent=hop_percent, dtype=dtype)
                     
                                 
-                    noisy_spectrograms.append(np.power(abs(mixture_tf), 2))
+                #     noisy_spectrograms.append(np.power(abs(mixture_tf), 2))
 
             if iteration == 0:
                 noisy_labels = np.concatenate(noisy_labels, axis=1)
@@ -220,19 +227,25 @@ def main():
                             output_data_dir=output_pickle_dir,
                             dataset_type=dataset_type,
                             suffix='noisy_labels')
-                
+
+                # # write spectrograms
+                # write_dataset(noisy_labels,
+                #             output_data_dir=output_pickle_dir,
+                #             dataset_type=dataset_type,
+                #             suffix='noisy_vad_labels')
+
                 del noisy_labels
 
-            if iteration == 1:
-                noisy_spectrograms = np.concatenate(noisy_spectrograms, axis=1)
+            # if iteration == 1:
+            #     noisy_spectrograms = np.concatenate(noisy_spectrograms, axis=1)
 
-                # write spectrograms
-                write_dataset(noisy_spectrograms,
-                            output_data_dir=output_pickle_dir,
-                            dataset_type=dataset_type,
-                            suffix='noisy_frames')
+            #     # write spectrograms
+            #     write_dataset(noisy_spectrograms,
+            #                 output_data_dir=output_pickle_dir,
+            #                 dataset_type=dataset_type,
+            #                 suffix='noisy_frames')
                 
-                del noisy_spectrograms
+            #     del noisy_spectrograms
 
 
         # TODO: save SNR, level_s, level_n in 1 big csv

@@ -182,6 +182,7 @@ class MCEM_M2(EM):
         # Metropolis-Hastings
         
         F, N = self.X.shape
+        y_dim = self.y.shape[0]
         
         if hasattr(self.vae, 'latent_dim'):
             L = self.vae.latent_dim
@@ -194,7 +195,7 @@ class MCEM_M2(EM):
         
         # latent variables sampled from the posterior
         Z_sampled_t = torch.zeros(N, nsamples, L).to(self.device)
-        Z_sampled_y_t = torch.zeros(N, nsamples, L + F).to(self.device) # concat of Z_sampled_t and y
+        Z_sampled_y_t = torch.zeros(N, nsamples, L + y_dim).to(self.device) # concat of Z_sampled_t and y
         
         # intial latent variables as tensor, shape (L, N)        
         #Z_t = self.np2tensor(Z).to(self.device)        

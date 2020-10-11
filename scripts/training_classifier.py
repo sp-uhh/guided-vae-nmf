@@ -85,7 +85,7 @@ def main():
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
 
-    # # Save mean and variance
+    # # Save mean and std
     # np.save(model_dir + '/' + 'trainset_mean.npy', mean)
     # np.save(model_dir + '/' + 'trainset_std.npy', std)
 

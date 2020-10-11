@@ -44,9 +44,27 @@ z_dim = 32
 h_dim = [128, 128]
 eps = 1e-8
 
-# Classifier
-classifier_name = 'CLASSIFIER_NAME'
+model_dir = os.path.join('models', model_name + '.pt')
+
+## Classifier
+# classif_name = 'classif_normdataset_hdim_128_128_end_epoch_100/Classifier_epoch_096_vloss_57.53'
+# h_dim_cl = [128, 128]
+# std_norm = True
+
+classif_name = 'classif_hdim_128_128_end_epoch_100/Classifier_epoch_096_vloss_71.65'
 h_dim_cl = [128, 128]
+std_norm = False
+
+
+classif_dir = os.path.join('models', classif_name + '.pt')
+
+if std_norm:
+    # Load mean and variance
+    mean = np.load(os.path.dirname(classif_dir) + '/' + 'trainset_mean.npy')
+    std = np.load(os.path.dirname(classif_dir) + '/' + 'trainset_std.npy')
+
+    mean = torch.tensor(mean).to(device)
+    std = torch.tensor(std).to(device)
 
 # NMF
 nmf_rank = 10
@@ -78,11 +96,11 @@ def main():
 
     print('Load models')
     classifier = Classifier([x_dim, h_dim_cl, y_dim])
-    classifier.load_state_dict(torch.load(os.path.join('models', classifier_name + '.pt'), map_location=cuda_device))
+    classifier.load_state_dict(torch.load(classif_dir, map_location=cuda_device))
     if cuda: classifier = classifier.cuda()
 
-    model = DeepGenerativeModel([x_dim, y_dim, z_dim, h_dim], classifier)
-    model.load_state_dict(torch.load(os.path.join('models', model_name + '.pt'), map_location=cuda_device))
+    model = DeepGenerativeModel([x_dim, y_dim, z_dim, h_dim], None)
+    model.load_state_dict(torch.load(model_dir, map_location=cuda_device))
     if cuda: model = model.cuda()
 
     print('- Number of learnable parameters: {}'.format(count_parameters(model)))
@@ -104,12 +122,18 @@ def main():
         T_orig = len(x_t)
         x_tf = stft(x_t, fs, wlen_sec, win, hop_percent).T # (frames, freq_bins)
         x = torch.tensor(np.power(np.abs(x_tf), 2)).to(device)
+        
+        # Normalize power spectrogram
+        if std_norm:
+            x_classif = x - mean.T
+            x_classif /= (std + eps).T
 
-        y_hat_soft = model.classify(x) 
+            y_hat_soft = classifier(x_classif) 
+        else:
+            y_hat_soft = classifier(x)   
         y_hat_hard = (y_hat_soft > 0.5).float()
 
         # Encode
-        x = torch.tensor(x).to(device)
         _, Z_init, _ = model.encoder(torch.cat([x, y_hat_hard], dim=1))
 
         # NMF parameters are initialized outside MCEM
@@ -138,12 +162,12 @@ def main():
         if not os.path.exists(os.path.dirname(output_path)):
             os.makedirs(os.path.dirname(output_path))
         
-        sf.write(output_path + '_' + classifier_name + '_s_est.wav', s_hat, fs)
-        sf.write(output_path + '_' + classifier_name + '_n_est.wav', n_hat, fs)
+        sf.write(output_path + '_' + os.path.dirname(classif_name) + '_s_est.wav', s_hat, fs)
+        sf.write(output_path + '_' + os.path.dirname(classif_name) + '_n_est.wav', n_hat, fs)
         
         # Save binary mask
-        torch.save(y_hat_soft, output_path + '_' + classifier_name + ' _ibm_soft_est.pt')
-        torch.save(y_hat_hard, output_path + '_' + classifier_name + '_ibm_hard_est.pt')
+        torch.save(y_hat_soft, output_path + '_' + os.path.dirname(classif_name) + ' _ibm_soft_est.pt')
+        torch.save(y_hat_hard, output_path + '_' + os.path.dirname(classif_name) + '_ibm_hard_est.pt')
         
         end_file = time.time()
         elapsed.append(end_file - start_file)

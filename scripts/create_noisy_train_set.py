@@ -204,12 +204,15 @@ def main():
                                             quantile_fraction=quantile_fraction,
                                             quantile_weight=quantile_weight)
                     noisy_labels.append(speech_ibm)
+<<<<<<< Updated upstream
                     
                     # # binary mask
                     # speech_vad = clean_speech_VAD(speech_tf,
                     #                         quantile_fraction=quantile_fraction,
                     #                         quantile_weight=quantile_weight)
                     # noisy_labels.append(speech_vad)
+=======
+>>>>>>> Stashed changes
 
                 # if iteration == 1:
                 #     # TF reprepsentation

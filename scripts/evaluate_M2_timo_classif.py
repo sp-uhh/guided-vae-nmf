@@ -99,18 +99,21 @@ def main():
         print('- File {}/{}'.format(i+1,len(test_data)), end='\r')
 
         T_orig = len(x_t)
-        x_tf = stft(x_t, fs, wlen_sec, win, hop_percent).T # (frames, freq_bins)
+        x_tf = stft(x_t, fs, wlen_sec, win, hop_percent)
         x = np.power(np.abs(x_tf), 2)
         
         y_hat_soft = timo_mask_estimation(x)
         y_hat_hard = (y_hat_soft > 0.5).astype(int)
-        y_hat_hard = torch.tensor(x).to(device)
+        y_hat_hard = y_hat_hard.T # (frames, freq_bins)
+        y_hat_hard = torch.tensor(y_hat_hard).to(device)
 
         # Encode
+        x = x.T # (frames, freq_bins)
         x = torch.tensor(x).to(device)
         _, Z_init, _ = model.encoder(torch.cat([x, y_hat_hard], dim=1))
 
         # NMF parameters are initialized outside MCEM
+        x_tf = x_tf.T # (frames, freq_bins)
         N, F = x_tf.shape
         W_init = np.maximum(np.random.rand(F,nmf_rank), eps)
         H_init = np.maximum(np.random.rand(nmf_rank, N), eps)

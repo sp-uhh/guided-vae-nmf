@@ -33,6 +33,9 @@ y_dim = 513
 z_dim = 32
 h_dim = [128, 128]
 
+# Classifier
+classifier = None
+
 # Training
 batch_size = 128
 learning_rate = 1e-3
@@ -64,7 +67,7 @@ print('- Number of validation samples: {}'.format(len(valid_dataset)))
 
 def main():
     print('Create model')
-    model = DeepGenerativeModel([x_dim, y_dim, z_dim, h_dim], None)
+    model = DeepGenerativeModel([x_dim, y_dim, z_dim, h_dim], classifier)
     if cuda: model = model.to(device, non_blocking=non_blocking)
 
     # Create model folder

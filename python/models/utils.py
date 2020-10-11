@@ -68,6 +68,27 @@ def elbo(x, r, mu, logvar, eps):
     KL = -0.5 * torch.mean(torch.sum(logvar - mu.pow(2) - logvar.exp(), dim=-1))
     return recon + KL, recon, KL
 
+def L_loss(x, r, mu, logvar, eps): 
+    recon = torch.sum(x/r - torch.log(x + eps) + torch.log(r) - 1, dim=-1)
+    KL = -0.5 * torch.sum(logvar - mu.pow(2) - logvar.exp(), dim=-1)
+    return recon + KL, recon, KL
+
+def U_loss(x, r, mu, logvar, y_hat_soft, eps):
+    recon = torch.sum(x/r - torch.log(x + eps) + torch.log(r) - 1, dim=-1)
+    KL = -0.5 * torch.sum(logvar - mu.pow(2) - logvar.exp(), dim=-1)
+
+    L = recon + KL
+    L = L.view_as(y_hat_soft.t()).t()
+
+    # Calculate entropy H(q(y|x)) and sum over all labels
+    H = -torch.mul(y_hat_soft, torch.log(y_hat_soft + eps)) - torch.mul(1-y_hat_soft, torch.log(1-y_hat_soft + eps))
+    L = torch.sum(torch.mul(y_hat_soft, L), dim=-1)
+
+    # Equivalent to -U(x)
+    U = torch.mean(L + H[:,0])
+    L = torch.mean(L)
+    return U, L, torch.mean(recon), torch.mean(KL)
+
 def f1_loss(y_hat_hard:torch.Tensor, y:torch.Tensor, epsilon=1e-8) -> torch.Tensor:
     '''Calculate F1 score. Can work with gpu tensors
     

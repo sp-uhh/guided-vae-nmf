@@ -4,6 +4,8 @@ sys.path.append('.')
 import os
 import pickle
 import numpy as np
+import torch
+from torch import nn
 import time
 import soundfile as sf
 from tqdm import tqdm
@@ -12,8 +14,8 @@ from sklearn.metrics import f1_score
 
 from python.dataset.csr1_wjs0_dataset import speech_list, read_dataset
 from python.processing.stft import stft
-from python.processing.target import clean_speech_VAD, clean_speech_IBM
-from python.models.spp_estimation import timo_vad_estimation, timo_mask_estimation
+from python.processing.target import clean_speech_VAD
+from python.models.models import Classifier
 #from utils import count_parameters
 
 from python.visualization import display_multiple_signals
@@ -28,7 +30,10 @@ dataset_size = 'subset'
 input_speech_dir = os.path.join('data',dataset_size,'raw/')
 processed_data_dir = os.path.join('data',dataset_size,'processed/')
 
-eps = 1e-8
+# System 
+cuda = torch.cuda.is_available()
+cuda_device = "cuda:0"
+device = torch.device(cuda_device if cuda else "cpu")
 
 
 # Parameters
@@ -44,10 +49,25 @@ dtype = 'complex64'
 quantile_fraction = 0.98
 quantile_weight = 0.999
 
+## Classifier
+model_name = 'classif_VAD_normdataset_hdim_128_128_end_epoch_100/Classifier_epoch_096_vloss_0.21'
+x_dim = 513 # frequency bins (spectrogram)
+y_dim = 1
+h_dim_cl = [128, 128]
+std_norm = True
+batch_norm = False
+eps = 1e-8
 
-## Timo's Classifier
-model_name = 'classifier_vad_timo'
+model_dir = os.path.join('models', model_name + '.pt')
 model_data_dir = 'data/' + dataset_size + '/models/' + model_name + '/'
+
+if std_norm:
+    # Load mean and variance
+    mean = np.load(os.path.dirname(model_dir) + '/' + 'trainset_mean.npy')
+    std = np.load(os.path.dirname(model_dir) + '/' + 'trainset_std.npy')
+
+    mean = torch.tensor(mean).to(device)
+    std = torch.tensor(std).to(device)
 
 # Output_data_dir
 output_data_dir = os.path.join('data', dataset_size, 'models', model_name + '/')
@@ -63,9 +83,24 @@ def main():
     all_snr_db = read_dataset(processed_data_dir, dataset_type, 'snr_db')
     all_snr_db = np.array(all_snr_db)
 
+    device = torch.device("cuda" if cuda else "cpu")
+    file = open('output.log','w') 
+
+    print('Torch version: {}'.format(torch.__version__))
+    print('Device: %s' % (device))
+    if torch.cuda.device_count() >= 1: print("Number GPUs: ", torch.cuda.device_count())
+
     # Create file list
     file_paths = speech_list(input_speech_dir=input_speech_dir,
                              dataset_type=dataset_type)
+
+    model = Classifier([x_dim, h_dim_cl, y_dim], batch_norm=batch_norm)
+    model.load_state_dict(torch.load(model_dir, map_location=cuda_device))
+    if cuda: model = model.cuda()
+
+    model.eval()
+    for param in model.parameters():
+        param.requires_grad = False
 
     # Create file list
     file_paths = speech_list(input_speech_dir=input_speech_dir,
@@ -88,16 +123,21 @@ def main():
                  win=win,
                  hop_percent=hop_percent,
                  dtype=dtype)
+                        
+        # Transpose to match PyTorch
+        x_tf = x_tf.T # (frames, freq_bins)
         
         # Power spectrogram (transpose)
-        x = np.power(np.abs(x_tf), 2)
+        x = torch.tensor(np.power(np.abs(x_tf), 2)).to(device)
 
-        # Estimate mask
-        y_hat_soft = timo_mask_estimation(x)
-        # y_hat_soft = np.exp(np.mean(np.log(y_hat_soft), axis=0))
-        y_hat_hard = (y_hat_soft > 0.5).astype(int)
-        y_hat_hard = y_hat_hard.sum(axis=0)
-        y_hat_hard = (y_hat_hard > (513 //2)).astype(int)
+        # Normalize power spectrogram
+        if std_norm:
+            x -= mean.T
+            x /= (std + eps).T
+
+        # Classify
+        y_hat_soft = model(x)
+        y_hat_hard = (y_hat_soft > 0.5).int()
 
         # plots of target / estimation
         s_tf = stft(s_t,
@@ -105,7 +145,7 @@ def main():
                  wlen_sec=wlen_sec,
                  win=win,
                  hop_percent=hop_percent,
-                 dtype=dtype) # shape = (freq_bins, frames) 
+                 dtype=dtype) # shape = (freq_bins, frames)
 
         # binary mask
         s_vad = clean_speech_VAD(s_tf,
@@ -113,6 +153,14 @@ def main():
                                 quantile_weight=quantile_weight)
         s_vad = s_vad[0]
         
+        # Transpose to match librosa.display
+        y_hat_hard = y_hat_hard.T
+        x_tf = x_tf.T
+
+        # Transform to numpy.array
+        y_hat_hard = y_hat_hard.cpu().numpy()
+        y_hat_hard = y_hat_hard[0]
+
         # F1-score
         f1score_s_hat = f1_score(s_vad, y_hat_hard, average="binary")
 
@@ -122,38 +170,8 @@ def main():
         signal_list = [
             [x_t, x_tf, None], # mixture: (waveform, tf_signal, no mask)
             [s_t, s_tf, s_vad], # clean speech
-            #[None, None, y_hat_hard]
-            [None, None, y_hat_soft]
-        ]
-        #TODO: modify
-        fig = display_multiple_signals(signal_list,
-                            fs=fs, vmin=vmin, vmax=vmax,
-                            wlen_sec=wlen_sec, hop_percent=hop_percent,
-                            xticks_sec=xticks_sec, fontsize=fontsize)
-        
-        # put all metrics in the title of the figure
-        title = "Input SNR = {:.1f} dB \n" \
-            "".format(all_snr_db[i])
-
-        fig.suptitle(title, fontsize=40)
-        
-        # Save figure
-        output_path = model_data_dir + file_path
-        output_path = os.path.splitext(output_path)[0]
-
-        if not os.path.exists(os.path.dirname(output_path)):
-            os.makedirs(os.path.dirname(output_path))
-
-        fig.savefig(output_path + '_soft_mask.png')
-
-                ## mixture signal (wav + spectro)
-        ## target signal (wav + spectro + mask)
-        ## estimated signal (wav + spectro + mask)
-        signal_list = [
-            [x_t, x_tf, None], # mixture: (waveform, tf_signal, no mask)
-            [s_t, s_tf, s_vad], # clean speech
-            #[None, None, y_hat_hard]
             [None, None, y_hat_hard]
+            #[None, None, y_hat_soft]
         ]
         #TODO: modify
         fig = display_multiple_signals(signal_list,
@@ -166,7 +184,7 @@ def main():
             "F1-score = {:.3f} \n".format(all_snr_db[i], f1score_s_hat)
 
         fig.suptitle(title, fontsize=40)
-        
+
         # Save figure
         output_path = model_data_dir + file_path
         output_path = os.path.splitext(output_path)[0]
@@ -175,6 +193,6 @@ def main():
             os.makedirs(os.path.dirname(output_path))
 
         fig.savefig(output_path + '_hard_mask.png')
-        
+
 if __name__ == '__main__':
     main()

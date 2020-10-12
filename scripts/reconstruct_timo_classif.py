@@ -8,6 +8,7 @@ import time
 import soundfile as sf
 from tqdm import tqdm
 import librosa
+from sklearn.metrics import f1_score
 
 from python.dataset.csr1_wjs0_dataset import speech_list, read_dataset
 from python.processing.stft import stft
@@ -108,6 +109,9 @@ def main():
                                 quantile_fraction=quantile_fraction,
                                 quantile_weight=quantile_weight)
 
+        # F1-score
+        f1score_s_hat = f1_score(s_ibm.flatten(), y_hat_hard.flatten(), average="binary")
+
         ## mixture signal (wav + spectro)
         ## target signal (wav + spectro + mask)
         ## estimated signal (wav + spectro + mask)
@@ -155,7 +159,7 @@ def main():
         
         # put all metrics in the title of the figure
         title = "Input SNR = {:.1f} dB \n" \
-            "".format(all_snr_db[i])
+            "F1-score = {:.3f} \n".format(all_snr_db[i], f1score_s_hat)
 
         fig.suptitle(title, fontsize=40)
         

@@ -83,7 +83,7 @@ class SPPNoiseEstimator:
         self._inv_glr_exp_factor = self._snr_opt_lin/(1. + self._snr_opt_lin)
         self._num_frames_processed = 0
 
-    def update(self, v_noisy_per):
+    def update(self, v_noisy_per, v_spp_in=None):
         """ Estimates noise PSD from the noisy input periodogram.
 
         The computations correspond to Algorithm 1 in [1]. All computations are
@@ -94,45 +94,55 @@ class SPPNoiseEstimator:
         :returns: noise PSD (sigma^2_n) (numpy array)
 
         """
-        if self._num_frames_processed < self._num_frames_init:
-            # average first frames to obtain first noise PSD estimate
-            v_noise_psd = self._v_old_psd + v_noisy_per / self._num_frames_init
+        if v_spp_in is None:
+            if self._num_frames_processed < self._num_frames_init:
+                # average first frames to obtain first noise PSD estimate
+                v_noise_psd = self._v_old_psd + v_noisy_per / self._num_frames_init
 
+                self._v_old_psd = v_noise_psd
+
+                # increment frame counter
+                self._num_frames_processed += 1
+
+                v_spp = np.zeros_like(self._v_old_psd) # SPP considered 0 at the beginning
+
+                return v_noisy_per, v_spp
+            else:
+                # compute inverse GLR
+                v_inv_glr = self._inv_glr_factor * \
+                    np.exp(-v_noisy_per / (self._v_old_psd + 1e-8) * self._inv_glr_exp_factor)
+
+                # compute SPP (corresponds to line 2 in Algorithm 1, [1])
+                v_spp = 1. / (1. + v_inv_glr)
+
+                # stuck protection (corresponds to line 3 and 4 in Algorithm 1,
+                # [1])
+                self._v_smooth_prob = (1 - self._prob_smooth) * v_spp + \
+                    self._prob_smooth * self._v_smooth_prob
+                v_mask = self._v_smooth_prob > 0.99
+                v_spp[v_mask] = np.minimum(v_spp[v_mask], 0.99)
+
+                # estimate noise periodogram (corresponds to line 5 in Algorithm
+                # 1, [1])
+                v_noise_per = (1. - v_spp) * v_noisy_per + \
+                    v_spp * self._v_old_psd
+                # corresponds to line 6 in Algorithm 1, [1]
+                v_noise_psd = (1. - self._fixed_smooth) * v_noise_per + \
+                    self._fixed_smooth * self._v_old_psd
+
+            # update old noise PSD estimate
             self._v_old_psd = v_noise_psd
 
-            # increment frame counter
-            self._num_frames_processed += 1
-
-            v_spp = np.zeros_like(self._v_old_psd) # SPP considered 0 at the beginning
-
-            return v_noisy_per, v_spp
+            return v_noise_psd, v_spp
         else:
-            # compute inverse GLR
-            v_inv_glr = self._inv_glr_factor * \
-                np.exp(-v_noisy_per / (self._v_old_psd + 1e-8) * self._inv_glr_exp_factor)
-
-            # compute SPP (corresponds to line 2 in Algorithm 1, [1])
-            v_spp = 1. / (1. + v_inv_glr)
-
-            # stuck protection (corresponds to line 3 and 4 in Algorithm 1,
-            # [1])
-            self._v_smooth_prob = (1 - self._prob_smooth) * v_spp + \
-                self._prob_smooth * self._v_smooth_prob
-            v_mask = self._v_smooth_prob > 0.99
-            v_spp[v_mask] = np.minimum(v_spp[v_mask], 0.99)
-
             # estimate noise periodogram (corresponds to line 5 in Algorithm
             # 1, [1])
-            v_noise_per = (1. - v_spp) * v_noisy_per + \
-                v_spp * self._v_old_psd
+            v_noise_per = (1. - v_spp_in) * v_noisy_per + \
+                v_spp_in * self._v_old_psd
             # corresponds to line 6 in Algorithm 1, [1]
             v_noise_psd = (1. - self._fixed_smooth) * v_noise_per + \
                 self._fixed_smooth * self._v_old_psd
-
-        # update old noise PSD estimate
-        self._v_old_psd = v_noise_psd
-
-        return v_noise_psd, v_spp
+        return v_noise_psd
 
     def reset(self):
         """ Resets the internal states of the algorithm.
@@ -202,3 +212,24 @@ def timo_vad_estimation(spectrogram):
         vad[i] = v_spp
     
     return vad
+
+def timo_noise_estimation(spectrogram, mask):
+    """
+    Run SPPNoiseEstimator on the whole power spectrogram
+
+    Args:
+        spectrogram ([type]): power spectrogram of noisy speech (i.e. |Y|^2)
+    """
+
+    freq_bins, frames = spectrogram.shape
+    frame_length = (freq_bins - 1) * 2 # STFT window size
+
+    spp_estimator = SPPNoiseEstimator(frame_length=frame_length)
+
+    noise_psd = np.zeros_like(spectrogram)
+
+    for i, (frame, v_ssp_in) in enumerate(zip(spectrogram.T, mask.T)):
+        v_noise_psd = spp_estimator.update(frame, v_ssp_in)
+        noise_psd[:,i] = v_noise_psd
+    
+    return noise_psd

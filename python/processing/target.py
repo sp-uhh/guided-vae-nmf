@@ -46,6 +46,20 @@ def clean_speech_VAD(observations,
     vad = vad[None] # vad.shape = (1, frames)
     return vad
 
+def ideal_wiener_mask(speech_tf,
+                      noise_tf,
+                      eps=1e-8):
+    """ Calculate softened mask according to lorenz function criterion.
+    :param observation: STFT of the the observed signal
+    :param quantile_fraction: Fraction of observations which are rated down
+    :param quantile_weight: Governs the influence of the mask
+    :return: quantile_mask
+    """
+    speech_power = abs(speech_tf * speech_tf.conj())
+    noise_power = abs(noise_tf * noise_tf.conj())
+    wiener_filter = speech_power / (speech_power + noise_power + eps)
+    return wiener_filter
+
 def noise_aware_IRM(*input, feature_dim=-2, source_dim=-1,
                            tuple_output=False):
     """

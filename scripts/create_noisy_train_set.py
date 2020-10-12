@@ -9,7 +9,7 @@ from tqdm import tqdm
 from python.dataset.csr1_wjs0_dataset import speech_list, write_dataset
 from python.dataset.demand_database import noise_list, preprocess_noise, noise_segment
 from python.processing.stft import stft
-from python.processing.target import clean_speech_IBM, clean_speech_VAD
+from python.processing.target import clean_speech_IBM, clean_speech_VAD, ideal_wiener_mask
 from python.utils import open_file
 
 
@@ -38,6 +38,9 @@ dtype = 'complex64'
 ## Ideal binary mask
 quantile_fraction = 0.98
 quantile_weight = 0.999
+
+# Ideal wiener mask
+eps = 1e-8
 
 
 def process_noise():
@@ -198,12 +201,22 @@ def main():
                     # TF reprepsentation
                     speech_tf = stft(speech, fs=fs, wlen_sec=wlen_sec, win=win, 
                         hop_percent=hop_percent, dtype=dtype)
+                    
+                    # TF reprepsentation
+                    noise_tf = stft(noise, fs=fs, wlen_sec=wlen_sec, win=win, 
+                        hop_percent=hop_percent, dtype=dtype)
+                    
+                    # wiener mask
+                    speech_wiener_mask = ideal_wiener_mask(speech_tf,
+                                             noise_tf,
+                                             eps)
+                    noisy_labels.append(speech_wiener_mask)
 
-                    # binary mask
-                    speech_ibm = clean_speech_IBM(speech_tf,
-                                            quantile_fraction=quantile_fraction,
-                                            quantile_weight=quantile_weight)
-                    noisy_labels.append(speech_ibm)
+                    # # binary mask
+                    # speech_ibm = clean_speech_IBM(speech_tf,
+                    #                         quantile_fraction=quantile_fraction,
+                    #                         quantile_weight=quantile_weight)
+                    # noisy_labels.append(speech_ibm)
                     
                     # # binary mask
                     # speech_vad = clean_speech_VAD(speech_tf,
@@ -221,12 +234,18 @@ def main():
 
             if iteration == 0:
                 noisy_labels = np.concatenate(noisy_labels, axis=1)
-        
+
                 # write spectrograms
                 write_dataset(noisy_labels,
                             output_data_dir=output_pickle_dir,
                             dataset_type=dataset_type,
-                            suffix='noisy_labels')
+                            suffix='noisy_wiener_labels')
+
+                # # write spectrograms
+                # write_dataset(noisy_labels,
+                #             output_data_dir=output_pickle_dir,
+                #             dataset_type=dataset_type,
+                #             suffix='noisy_labels')
 
                 # # write spectrograms
                 # write_dataset(noisy_labels,

@@ -90,6 +90,15 @@ def U_loss(x, r, mu, logvar, y_hat_soft, eps):
     L = torch.mean(L)
     return U, L, torch.mean(recon), torch.mean(KL)
 
+def mean_square_error_signal(x, y, y_hat):
+    #MSE = torch.mean(torch.square(torch.mul(y - y_hat, x)))
+    MSE = torch.mean(torch.sum(torch.square(torch.mul(y - y_hat, x)), axis=-1))
+    return MSE
+
+def mean_square_error_mask(y, y_hat):
+    MSE = torch.mean(torch.sum(torch.square(y - y_hat), axis=-1))
+    return MSE
+
 def f1_loss(y_hat_hard:torch.Tensor, y:torch.Tensor, epsilon=1e-8) -> torch.Tensor:
     '''Calculate F1 score. Can work with gpu tensors
     

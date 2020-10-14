@@ -142,6 +142,7 @@ def main():
         # Normalize by max of speech, noise, speech+noise
         norm = np.max(abs(np.concatenate([speech, noise, speech+noise])))
         mixture = (speech+noise) / norm
+        #mixture = (speech.copy()+noise.copy()) / norm
         speech /= norm
         noise /= norm
 

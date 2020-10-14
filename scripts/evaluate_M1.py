@@ -76,17 +76,17 @@ dtype = 'complex64'
 # h_dim = [128]
 # eps = 1e-8
 
-# model_name = 'M1_hdim_128_128_zdim_032_end_epoch_200/M1_epoch_085_vloss_479.69'
-# x_dim = 513 # frequency bins (spectrogram)
-# z_dim = 32
-# h_dim = [128, 128]
-# eps = 1e-8
-
-model_name = 'M1_end_epoch_200/M1_epoch_085_vloss_475.56'
+model_name = 'M1_hdim_128_128_zdim_032_end_epoch_200/M1_epoch_085_vloss_479.69'
 x_dim = 513 # frequency bins (spectrogram)
-z_dim = 16
+z_dim = 32
 h_dim = [128, 128]
 eps = 1e-8
+
+# model_name = 'M1_end_epoch_200/M1_epoch_085_vloss_475.56'
+# x_dim = 513 # frequency bins (spectrogram)
+# z_dim = 16
+# h_dim = [128, 128]
+# eps = 1e-8
 
 ## Monte-Carlo EM
 use_mcem_julius = False
@@ -103,8 +103,9 @@ nsamples_WF = 25
 burnin_WF = 75
 var_RW = 0.01
 
-# Output_data_dir
+# Data directories
 output_data_dir = os.path.join('data', dataset_size, 'models', model_name + '/')
+processed_data_dir = os.path.join('data',dataset_size,'processed/')
 
 
 def main():
@@ -115,9 +116,6 @@ def main():
     print('Torch version: {}'.format(torch.__version__))
     print('Device: %s' % (device))
     if torch.cuda.device_count() >= 1: print("Number GPUs: ", torch.cuda.device_count())
-
-    #TODO: modify and just read stored .wav files
-    test_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_et_05_mixture-505.p'), 'rb'))
 
     model = VariationalAutoencoder([x_dim, z_dim, h_dim])
     model.load_state_dict(torch.load(os.path.join('models', model_name + '.pt'), map_location="cuda:0"))
@@ -133,13 +131,18 @@ def main():
 
     # s_hat_list = []
     # n_hat_list = []
+    print('Start evaluation')
+    start = time.time()
+    elapsed = []
+    
+    for i, file_path in enumerate(file_paths):   
+        start_file = time.time()
+        print('- File {}/{}'.format(i+1,len(test_data)), end='\r')
 
-    for i, (x_t, file_path) in tqdm(enumerate(zip(test_data, file_paths))):
-        
-        print('File {}/{}'.format(i+1,len(test_data)), file=open('output.log','a'))
-        # x = x/np.max(x)
+
+        x_t, fs_x = sf.read(processed_data_dir + os.path.splitext(file_path)[0] + '_x.wav') # mixture
         T_orig = len(x_t)
-        
+
         # TF reprepsentation
         # Input should be (frames, freq_bibs)
         x_tf = stft(x_t,
@@ -233,8 +236,13 @@ def main():
         sf.write(output_path + '_s_est.wav', s_hat, fs)
         sf.write(output_path + '_n_est.wav', n_hat, fs)
 
-    # pickle.dump(s_hat, open('../data/pickle/s_hat_vae', 'wb'), protocol=4)
-    # pickle.dump(n_hat, open('../data/pickle/n_hat_vae', 'wb'), protocol=4)
+        end_file = time.time()
+        elapsed.append(end_file - start_file)
+        etc = (len(test_data)-i-1)*np.mean(elapsed)
+
+    end = time.time()
+    print('- File {}/{}   '.format(len(test_data), len(test_data)))
+    print('                     total time: {:6.1f} s'.format(end-start))
         
 if __name__ == '__main__':
     main()

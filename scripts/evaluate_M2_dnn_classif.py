@@ -47,13 +47,13 @@ eps = 1e-8
 model_dir = os.path.join('models', model_name + '.pt')
 
 ## Classifier
-# classif_name = 'classif_normdataset_hdim_128_128_end_epoch_100/Classifier_epoch_096_vloss_57.53'
-# h_dim_cl = [128, 128]
-# std_norm = True
-
-classif_name = 'classif_hdim_128_128_end_epoch_100/Classifier_epoch_096_vloss_71.65'
+classif_name = 'classif_normdataset_hdim_128_128_end_epoch_100/Classifier_epoch_096_vloss_57.53'
 h_dim_cl = [128, 128]
-std_norm = False
+std_norm = True
+
+# classif_name = 'classif_hdim_128_128_end_epoch_100/Classifier_epoch_096_vloss_71.65'
+# h_dim_cl = [128, 128]
+# std_norm = False
 
 
 classif_dir = os.path.join('models', classif_name + '.pt')
@@ -79,7 +79,7 @@ var_RW = 0.01
 
 # Data directories
 input_speech_dir = os.path.join('data', dataset_size,'raw/')
-output_data_dir = os.path.join('data', dataset_size, 'models', model_name + '/')
+output_data_dir = os.path.join('data', dataset_size, 'models', model_name, classif_name + '/')
 processed_data_dir = os.path.join('data',dataset_size,'processed/')
 
 #####################################################################################################
@@ -87,12 +87,7 @@ processed_data_dir = os.path.join('data',dataset_size,'processed/')
 def main():
     file = open('output.log','w') 
 
-    print('Load data')
-
-    #TODO: modify and just read stored .wav files
-    test_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_et_05_mixture-505.p'), 'rb'))
-
-    print('- Number of test samples: {}'.format(len(test_data)))
+    print('- Number of test samples: {}'.format(len(file_paths)))
 
     print('Load models')
     classifier = Classifier([x_dim, h_dim_cl, y_dim])
@@ -115,13 +110,16 @@ def main():
     print('Start evaluation')
     start = time.time()
     elapsed = []
-    for i, (x_t, file_path) in enumerate(zip(test_data, file_paths)):
+    for i, file_path in enumerate(file_paths):
         start_file = time.time()
-        print('- File {}/{}'.format(i+1,len(test_data)), end='\r')
+        print('- File {}/{}'.format(i+1,len(file_paths)), end='\r')
+
+        x_t, fs_x = sf.read(processed_data_dir + os.path.splitext(file_path)[0] + '_x.wav') # mixture
 
         T_orig = len(x_t)
         x_tf = stft(x_t, fs, wlen_sec, win, hop_percent).T # (frames, freq_bins)
         x = torch.tensor(np.power(np.abs(x_tf), 2)).to(device)
+        
         
         # Normalize power spectrogram
         if std_norm:
@@ -162,22 +160,22 @@ def main():
         if not os.path.exists(os.path.dirname(output_path)):
             os.makedirs(os.path.dirname(output_path))
         
-        sf.write(output_path + '_' + os.path.dirname(classif_name) + '_s_est.wav', s_hat, fs)
-        sf.write(output_path + '_' + os.path.dirname(classif_name) + '_n_est.wav', n_hat, fs)
+        sf.write(output_path + '_s_est.wav', s_hat, fs)
+        sf.write(output_path + '_n_est.wav', n_hat, fs)
         
         # Save binary mask
-        torch.save(y_hat_soft, output_path + '_' + os.path.dirname(classif_name) + ' _ibm_soft_est.pt')
-        torch.save(y_hat_hard, output_path + '_' + os.path.dirname(classif_name) + '_ibm_hard_est.pt')
+        torch.save(y_hat_soft, output_path + ' _ibm_soft_est.pt')
+        torch.save(y_hat_hard, output_path + '_ibm_hard_est.pt')
         
         end_file = time.time()
         elapsed.append(end_file - start_file)
-        etc = (len(test_data)-i-1)*np.mean(elapsed)
+        etc = (len(file_paths)-i-1)*np.mean(elapsed)
 
         print("                   average time per file: {:4.1f} s      ETC: {:d} h, {:2d} min, {:2d} s"\
             "".format(np.mean(elapsed), int(etc/(60*60)), int((etc/60) % 60), int(etc % 60)), end='\r')
 
     end = time.time()
-    print('- File {}/{}   '.format(len(test_data), len(test_data)))
+    print('- File {}/{}   '.format(len(file_paths), len(file_paths)))
     print('                     total time: {:6.1f} s'.format(end-start))
         
 if __name__ == '__main__':

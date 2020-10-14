@@ -178,9 +178,9 @@ def main():
 
                 # # Normalize by max of speech, noise, speech+noise
                 # norm = np.max(abs(np.concatenate([speech, noise, speech+noise])))
+                # mixture = (speech+noise) / norm
                 # speech /= norm
                 # noise /= norm
-                # mixture = (speech+noise) / norm
 
                 if dataset_size == 'subset':
                     # Save .wav files, just to check if it working
@@ -192,7 +192,7 @@ def main():
                     
                     sf.write(output_path + '_s.wav', speech, fs)
                     sf.write(output_path + '_n.wav', noise, fs)
-                    sf.write(output_path + '_x.wav', speech+noise, fs)
+                    sf.write(output_path + '_x.wav', mixture, fs)
 
                 if iteration == 0:                
                     # TF reprepsentation

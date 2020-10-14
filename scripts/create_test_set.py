@@ -141,9 +141,9 @@ def main():
 
         # Normalize by max of speech, noise, speech+noise
         norm = np.max(abs(np.concatenate([speech, noise, speech+noise])))
+        mixture = (speech+noise) / norm
         speech /= norm
         noise /= norm
-        mixture = (speech+noise) / norm
 
         # Append processed audios
         speeches.append(speech) 
@@ -159,7 +159,7 @@ def main():
         
         sf.write(output_path + '_s.wav', speech, fs)
         sf.write(output_path + '_n.wav', noise, fs)
-        sf.write(output_path + '_x.wav', speech+noise, fs)
+        sf.write(output_path + '_x.wav', mixture, fs)
 
         # TODO: save SNR, level_s, level_n in a figure
     

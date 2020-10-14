@@ -192,7 +192,7 @@ def main():
                     
                     sf.write(output_path + '_s.wav', speech, fs)
                     sf.write(output_path + '_n.wav', noise, fs)
-                    sf.write(output_path + '_x.wav', speech+noise, fs)
+                    sf.write(output_path + '_x.wav', mixture, fs)
 
                 if iteration == 0:                
                     # TF reprepsentation

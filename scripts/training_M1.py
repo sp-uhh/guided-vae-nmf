@@ -14,12 +14,12 @@ from python.models.utils import elbo
 ##################################### SETTINGS #####################################################
 
 # Dataset
-dataset_size = 'subset'
-# dataset_size = 'complete'
+#dataset_size = 'subset'
+dataset_size = 'complete'
 
 # System 
 cuda = torch.cuda.is_available()
-device = torch.device("cuda" if cuda else "cpu")
+device = torch.device("cuda:1" if cuda else "cpu")
 num_workers = 8
 pin_memory = True
 non_blocking = True
@@ -28,14 +28,17 @@ eps = 1e-8
 # Deep Generative Model
 x_dim = 513 
 z_dim = 16
-h_dim = [128, 128]
+h_dim = [128]
 
 # Training
 batch_size = 128
 learning_rate = 1e-3
 log_interval = 250
 start_epoch = 1
-end_epoch = 50
+end_epoch = 200
+
+#model_name = 'M1_hdim_{:03d}_{:03d}_zdim_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], z_dim, end_epoch)
+model_name = 'M1_hdim_{:03d}_zdim_{:03d}_end_epoch_{:03d}'.format(h_dim[0], z_dim, end_epoch)
 
 #####################################################################################################
 
@@ -62,7 +65,7 @@ def main():
     if cuda: model = model.to(device, non_blocking=non_blocking)
 
     # Create model folder
-    model_dir = os.path.join('models', 'M1_end_epoch_{:03d}'.format(end_epoch))
+    model_dir = os.path.join('models', model_name)
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
 

@@ -15,8 +15,8 @@ from python.models.utils import L_loss, U_loss
 ##################################### SETTINGS #####################################################
 
 # Dataset
-dataset_size = 'subset'
-# dataset_size = 'complete'
+# dataset_size = 'subset'
+dataset_size = 'complete'
 
 # System 
 cuda = torch.cuda.is_available()
@@ -119,7 +119,7 @@ def main():
             # Save to log
             if batch_idx % log_interval == 0:
                 print(('Train Epoch: {:2d}   [{:7d}/{:7d} ({:2d}%)]    '\
-                    'U: {:.3f}    L: {:.3f}    Recon.: {:.3f}    KL: {:.3f}    '\
+                    'U: {:.10f}    L: {:.2f}    Recon.: {:.3f}    KL: {:.3f}    '\
                     + '').format(epoch, batch_idx*len(x), len(train_loader.dataset), int(100.*batch_idx/len(train_loader)),\
                             loss.item(), L.item(), recon_loss.item(), KL.item()), 
                     file=open(model_dir + '/' + 'output_batch.log','a'))

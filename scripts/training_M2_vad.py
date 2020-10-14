@@ -3,6 +3,7 @@ import sys
 import torch
 import pickle
 from tqdm import tqdm
+import numpy as np
 
 sys.path.append('.')
 
@@ -20,7 +21,7 @@ dataset_size = 'complete'
 
 # System 
 cuda = torch.cuda.is_available()
-cuda_device = "cuda:3"
+cuda_device = "cuda:0"
 device = torch.device(cuda_device if cuda else "cpu")
 num_workers = 8
 pin_memory = True
@@ -30,8 +31,9 @@ eps = 1e-8
 # Deep Generative Model
 x_dim = 513 
 y_dim = 1
-z_dim = 32
+z_dim = 16
 h_dim = [128, 128]
+std_norm = True
 
 # Classifier
 classifier = None
@@ -41,9 +43,11 @@ batch_size = 128
 learning_rate = 1e-3
 log_interval = 250
 start_epoch = 1
-end_epoch = 100
+end_epoch = 200
 
-model_name = 'M2_VAD_hdim_{:03d}_{:03d}_zdim_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], z_dim, end_epoch)
+#model_name = 'M2_VAD_hdim_{:03d}_{:03d}_zdim_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], z_dim, end_epoch)
+# model_name = 'M2_VAD_hdim_{:03d}_zdim_{:03d}_end_epoch_{:03d}'.format(h_dim[0], z_dim, end_epoch)
+model_name = 'M2_VAD_normdataset_hdim_{:03d}_zdim_{:03d}_end_epoch_{:03d}'.format(h_dim[0], z_dim, end_epoch)
 
 #####################################################################################################
 
@@ -75,7 +79,19 @@ def main():
     # Create model folder
     model_dir = os.path.join('models', model_name)
     if not os.path.exists(model_dir):
-        os.makedirs(model_dir)      
+        os.makedirs(model_dir)
+    
+    if std_norm:
+        # Normalize train_data, valid_data
+        mean = np.mean(train_data, axis=1)[None] # to match x.shape
+        std = np.std(train_data, axis=1, ddof=1)[None] # to match x.shape
+
+        mean = torch.tensor(mean).to(device).detach()
+        std = torch.tensor(std).to(device).detach()
+
+        # Save mean and variance
+        torch.save(mean, model_dir + '/' + 'trainset_mean.pt')
+        torch.save(std, model_dir + '/' + 'trainset_std.pt')
 
     # Start log file
     file = open(model_dir + '/' +'output_batch.log','w') 
@@ -96,7 +112,10 @@ def main():
             if cuda:
                 x, y = x.to(device, non_blocking=non_blocking), y.to(device, non_blocking=non_blocking)
 
-            r, mu, logvar = model(x, y)
+            if std_norm:
+                r, mu, logvar = model((x-mean) / (std + eps), y)
+            else:
+                r, mu, logvar = model(x, y)
             loss, recon_loss, KL = elbo(x, r, mu, logvar, eps)
             loss.backward()
             optimizer.step()
@@ -134,7 +153,10 @@ def main():
                 if cuda:
                     x, y = x.to(device, non_blocking=non_blocking), y.to(device, non_blocking=non_blocking)
 
-                r, mu, logvar = model(x, y)
+                if std_norm:
+                    r, mu, logvar = model((x-mean) / (std + eps), y)
+                else:
+                    r, mu, logvar = model(x, y)
                 loss, recon_loss, KL = elbo(x, r, mu, logvar, eps)
 
                 total_elbo += loss.item()

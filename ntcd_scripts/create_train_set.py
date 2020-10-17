@@ -5,6 +5,7 @@ import numpy as np
 import soundfile as sf
 import os
 from tqdm import tqdm
+import math
 
 from python.dataset.ntcd_timit_dataset import speech_list, write_dataset
 from python.processing.stft import stft
@@ -27,10 +28,14 @@ output_noise_dir = 'data/complete/processed/qutnoise_databases/' # change the na
 output_pickle_dir = os.path.join('data', dataset_size, 'pickle', 'ntcd_timit/')
 
 ## STFT
+video_frame_rate = 29.970030  # frames per second
 fs = int(16e3) # Sampling rate
 wlen_sec = 64e-3 # window length in seconds
-hop_percent = 0.25  # hop size as a percentage of the window length
+hop_percent = math.floor((1 / (wlen_sec * video_frame_rate)) * 1e4) / 1e4  # hop size as a percentage of the window length
 win = 'hann' # type of window
+center = False # see https://librosa.org/doc/0.7.2/_modules/librosa/core/spectrum.html#stft
+pad_mode = 'reflect' # This argument is ignored if center = False
+pad_at_end = True # pad audio file at end to match same size after stft + istft
 dtype = 'complex64'
 
 ## Ideal binary mask
@@ -62,8 +67,15 @@ def main():
                     raise ValueError('Unexpected sampling rate')
 
                 # TF reprepsentation
-                speech_tf = stft(speech, fs=fs, wlen_sec=wlen_sec, win=win, 
-                    hop_percent=hop_percent, dtype=dtype)
+                speech_tf = stft(speech,
+                                 fs=fs,
+                                 wlen_sec=wlen_sec,
+                                 win=win, 
+                                 hop_percent=hop_percent,
+                                 center=center,
+                                 pad_mode=pad_mode,
+                                 pad_at_end=pad_at_end,
+                                 dtype=dtype) # shape = (freq_bins, frames)
 
                 # binary mask
                 speech_ibm = clean_speech_IBM(speech_tf,

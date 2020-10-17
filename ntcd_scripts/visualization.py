@@ -4,8 +4,9 @@ sys.path.append('.')
 import os
 import soundfile as sf
 import numpy as np
+import math
 
-from python.dataset.csr1_wjs0_dataset import speech_list
+from python.dataset.ntcd_timit_dataset import speech_list
 from python.processing.stft import stft
 from python.processing.target import clean_speech_IBM, clean_speech_VAD
 
@@ -21,13 +22,18 @@ dataset_type = 'test'
 fs = int(16e3) # Sampling rate
 
 ## STFT
+video_frame_rate = 29.970030  # frames per second
+fs = int(16e3) # Sampling rate
 wlen_sec = 64e-3 # window length in seconds
-hop_percent = 0.25  # hop size as a percentage of the window length
+hop_percent = math.floor((1 / (wlen_sec * video_frame_rate)) * 1e4) / 1e4  # hop size as a percentage of the window length
 win = 'hann' # type of window
+center = False # see https://librosa.org/doc/0.7.2/_modules/librosa/core/spectrum.html#stft
+pad_mode = 'reflect' # This argument is ignored if center = False
+pad_at_end = True # pad audio file at end to match same size after stft + istft
 dtype = 'complex64'
 
 ## IBM
-quantile_fraction = 0.9999
+quantile_fraction = 0.9995
 quantile_weight = 0.999
 
 ## Plot spectrograms
@@ -45,13 +51,7 @@ def main():
     
     for path in file_paths:
         x, fs_x = sf.read(input_speech_dir + path, samplerate=None)
-        
-        # Cut burst at begining of file
-        x = x[int(0.1*fs):]
-
-        # Normalize audio
         x = x/np.max(np.abs(x))
-        
         if fs != fs_x:
             raise ValueError('Unexpected sampling rate')
 
@@ -59,9 +59,13 @@ def main():
         x_tf = stft(x,
                     fs=fs,
                     wlen_sec=wlen_sec,
-                    win=win,
-                    hop_percent=hop_percent) # shape = (freq_bins, frames)
-
+                    win=win, 
+                    hop_percent=hop_percent,
+                    center=center,
+                    pad_mode=pad_mode,
+                    pad_at_end=pad_at_end,
+                    dtype=dtype) # shape = (freq_bins, frames)
+        
         # # binary mask
         # x_ibm = clean_speech_IBM(x_tf,
         #                         quantile_fraction=quantile_fraction,

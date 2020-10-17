@@ -20,6 +20,7 @@ def stft(x,
          hop_percent=0.25,
          center=True,
          pad_mode='reflect',
+         pad_at_end=True,
          dtype='complex64'):
     """
     Arguments
@@ -44,11 +45,12 @@ def stft(x,
 
     # Sometimes stft / istft shortens the ouput due to window size
     # so you need to pad the end with hopsamp zeros
-    utt_len = len(x) / fs
-    if math.ceil(utt_len / wlen_sec / hop_percent) != int(utt_len / wlen_sec / hop_percent):
-        x_ = np.pad(x, (0,hopsamp), mode='constant')
-    else:
-        x_ = x
+    if pad_at_end:
+        utt_len = len(x) / fs
+        if math.ceil(utt_len / wlen_sec / hop_percent) != int(utt_len / wlen_sec / hop_percent):
+            x_ = np.pad(x, (0,hopsamp), mode='constant')
+        else:
+            x_ = x
 
     Sxx = librosa.core.stft(y=x_,
                             n_fft=nfft,

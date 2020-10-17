@@ -36,16 +36,23 @@ hop_percent = 0.25  # hop size as a percentage of the window length
 win = 'hann' # type of window
 
 # Hyperparameters 
-# M2
-model_name = 'M2_VAD_hdim_128_128_zdim_032_end_epoch_100/M2_epoch_085_vloss_465.98'
+## Wiener
+model_name = 'wiener_maskloss_normdataset_hdim_128_128_128_128_128_end_epoch_200/Classifier_epoch_096_vloss_46.936924'
 x_dim = 513 
-y_dim = 1
-z_dim = 32
-h_dim = [128, 128]
+y_dim = 513
+h_dim = [128, 128, 128, 128, 128]
 eps = 1e-8
+std_norm = True
 
-# Classifier
-classif_name = 'timo_vad_classif'
+model_dir = os.path.join('models', model_name + '.pt')
+
+if std_norm:
+    # Load mean and variance
+    mean = np.load(os.path.dirname(model_dir) + '/' + 'trainset_mean.npy')
+    std = np.load(os.path.dirname(model_dir) + '/' + 'trainset_std.npy')
+
+    mean = torch.tensor(mean).to(device)
+    std = torch.tensor(std).to(device)
 
 # NMF
 nmf_rank = 10
@@ -60,7 +67,7 @@ var_RW = 0.01
 
 # Data directories
 input_speech_dir = os.path.join('data', dataset_size,'raw/')
-output_data_dir = os.path.join('data', dataset_size, 'models', model_name, classif_name + '/')
+output_data_dir = os.path.join('data', dataset_size, 'models', model_name + '/')
 processed_data_dir = os.path.join('data',dataset_size,'processed/')
 
 #####################################################################################################
@@ -69,10 +76,8 @@ def main():
     file = open('output.log','w') 
 
     print('Load models')
-    classifier = None
-
-    model = DeepGenerativeModel([x_dim, y_dim, z_dim, h_dim], classifier)
-    model.load_state_dict(torch.load(os.path.join('models', model_name + '.pt'), map_location=cuda_device))
+    model = Classifier([x_dim, h_dim, y_dim])
+    model.load_state_dict(torch.load(model_dir, map_location=cuda_device))
     if cuda: model = model.cuda()
 
     print('- Number of learnable parameters: {}'.format(count_parameters(model)))
@@ -95,40 +100,24 @@ def main():
         x_t, fs_x = sf.read(processed_data_dir + os.path.splitext(file_path)[0] + '_x.wav') # mixture
 
         T_orig = len(x_t)
-        x_tf = stft(x_t, fs, wlen_sec, win, hop_percent)
-        x = np.power(np.abs(x_tf), 2)
+        x_tf = stft(x_t, fs, wlen_sec, win, hop_percent).T # (frames, freq_bins)
+        x = torch.tensor(np.power(np.abs(x_tf), 2)).to(device)
         
-        y_hat_soft = timo_mask_estimation(x)
-        y_hat_hard = (y_hat_soft > 0.5).astype(int)
-        y_hat_hard = y_hat_hard.sum(axis=0)
-        y_hat_hard = (y_hat_hard > (513 //2)).astype(int)
-        y_hat_hard = y_hat_hard[:, None]
-        y_hat_hard = torch.tensor(y_hat_hard).to(device)
+        
+        # Normalize power spectrogram
+        if std_norm:
+            x_classif = x - mean.T
+            x_classif /= (std + eps).T
 
-        # Encode
-        x = x.T # (frames, freq_bins)
-        x = torch.tensor(x).to(device)
-        _, Z_init, _ = model.encoder(torch.cat([x, y_hat_hard], dim=1))
+            y_hat_soft = model(x_classif) 
+        else:
+            y_hat_soft = model(x)   
 
-        # NMF parameters are initialized outside MCEM
-        x_tf = x_tf.T # (frames, freq_bins) 
-        N, F = x_tf.shape
-        W_init = np.maximum(np.random.rand(F,nmf_rank), eps)
-        H_init = np.maximum(np.random.rand(nmf_rank, N), eps)
-        g_init = torch.ones(N).to(device)
-
-        mcem = MCEM_M2(X=x_tf, W=W_init, H=H_init, g=g_init, Z=Z_init, y=y_hat_hard,
-                            vae=model, device=device, niter=niter,
-                            nsamples_E_step=nsamples_E_step,
-                            burnin_E_step=burnin_E_step, nsamples_WF=nsamples_WF, 
-                            burnin_WF=burnin_WF, var_RW=var_RW)
-        cost = mcem.run()
-
-        S_hat = mcem.S_hat #+ np.finfo(np.float32).eps
-        N_hat = mcem.N_hat #+ np.finfo(np.float32).eps
+        # Apply estimated filter
+        S_hat = y_hat_soft.cpu().numpy() * x_tf
+        S_hat = S_hat.T
 
         s_hat = istft(S_hat, fs=fs, wlen_sec=wlen_sec, win=win, hop_percent=hop_percent, max_len=T_orig)
-        n_hat = istft(N_hat, fs=fs, wlen_sec=wlen_sec, win=win, hop_percent=hop_percent, max_len=T_orig)
 
         # Save .wav files
         output_path = output_data_dir + file_path
@@ -138,12 +127,10 @@ def main():
             os.makedirs(os.path.dirname(output_path))
         
         sf.write(output_path + '_s_est.wav', s_hat, fs)
-        sf.write(output_path + '_n_est.wav', n_hat, fs)
         
         # Save binary mask
-        torch.save(y_hat_soft, output_path + '_ibm_soft_est.pt')
-        torch.save(y_hat_hard, output_path + '_ibm_hard_est.pt')
-
+        torch.save(y_hat_soft, output_path + ' _ibm_soft_est.pt')
+        
         end_file = time.time()
         elapsed.append(end_file - start_file)
         etc = (len(file_paths)-i-1)*np.mean(elapsed)

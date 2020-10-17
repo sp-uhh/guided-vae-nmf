@@ -137,6 +137,7 @@ class SPPNoiseEstimator:
         else:
             # estimate noise periodogram (corresponds to line 5 in Algorithm
             # 1, [1])
+            #TODO: better use formula of Wang with alpha combined with mask
             v_noise_per = (1. - v_spp_in) * v_noisy_per + \
                 v_spp_in * self._v_old_psd
             # corresponds to line 6 in Algorithm 1, [1]

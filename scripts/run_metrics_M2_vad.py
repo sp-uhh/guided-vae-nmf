@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 
 from python.dataset.csr1_wjs0_dataset import speech_list, read_dataset
 from python.processing.stft import stft, istft
-from python.processing.target import clean_speech_IBM
+from python.processing.target import clean_speech_VAD
 
 from python.metrics import energy_ratios, mean_confidence_interval
 from pystoi import stoi
@@ -52,11 +52,17 @@ quantile_weight = 0.999
 
 ## Hyperparameters
 # M2
-#model_name = 'dummy_M2_10_epoch_010_vloss_108.79'
-# model_name = 'dummy_M2_alpha_5.0_epoch_100_vloss_466.72'
-model_name = 'M1_hdim_128_128_zdim_032_end_epoch_200/M1_epoch_085_vloss_479.69'
+model_name = 'M2_VAD_hdim_128_128_zdim_032_end_epoch_100/M2_epoch_085_vloss_465.98'
 
-model_data_dir = 'data/' + dataset_size + '/models/' + model_name + '/'
+# classifier
+# classif_name = 'classif_VAD_normdataset_hdim_128_128_end_epoch_100/Classifier_epoch_096_vloss_0.21'
+# classif_name = 'oracle_classif'
+# classif_name = 'ones_classif'
+classif_name = 'zeros_classif'
+# classif_name = 'timo_vad_classif'
+
+# Directory where estimated data is stored
+model_data_dir = os.path.join('data', dataset_size, 'models', model_name, classif_name + '/')
 
 ## Plot spectrograms
 vmin = -40 # in dB
@@ -113,6 +119,12 @@ def main():
         # polqa_s_hat = polqa(s, s_t, fs)
         # all_polqa.append(polqa_s_hat)
 
+        ## F1 score
+        # ideal binary mask
+        y_hat_hard = torch.load(model_data_dir + os.path.splitext(file_path)[0] + '_ibm_hard_est.pt') # shape = (frames, freq_bins)
+        y_hat_hard = torch.t(y_hat_hard > 0.5).cpu().numpy() # Transpose to match target y, shape = (freq_bins, frames)
+        y_hat_hard = y_hat_hard[0] # shape = (frames)
+
         # TF representation
         s_tf = stft(s_t,
                  fs=fs,
@@ -121,9 +133,13 @@ def main():
                  hop_percent=hop_percent,
                  dtype=dtype) # shape = (freq_bins, frames)
 
-        y = clean_speech_IBM(s_tf,
+        y = clean_speech_VAD(s_tf,
                              quantile_fraction=quantile_fraction,
                              quantile_weight=quantile_weight)
+        y = y[0] # shape = (frames)
+
+        f1score_s_hat = f1_score(y, y_hat_hard, average="binary")
+        all_f1score.append(f1score_s_hat)
 
         # plots of target / estimation
         # TF representation
@@ -147,7 +163,7 @@ def main():
         # signal_list = [
         #     [x_t, x_tf, None], # mixture: (waveform, tf_signal, no mask)
         #     [s_t, s_tf, y], # clean speech
-        #     [s_hat_t, s_hat_tf, None]
+        #     [s_hat_t, s_hat_tf, y_hat_hard]
         # ]
         # fig = display_multiple_signals(signal_list,
         #                     fs=fs, vmin=vmin, vmax=vmax,
@@ -161,7 +177,7 @@ def main():
         #     "SI-SAR = {:.1f} dB \n" \
         #     "STOI = {:.2f}, " \
         #     "PESQ = {:.2f} \n" \
-        #     "".format(all_snr_db[i], si_sdr, si_sir, si_sar, stoi_s_hat, pesq_s_hat)
+        #     "F1-score = {:.3f} \n".format(all_snr_db[i], si_sdr, si_sir, si_sar, stoi_s_hat, pesq_s_hat, f1score_s_hat)
 
         # fig.suptitle(title, fontsize=40)
 
@@ -177,7 +193,8 @@ def main():
         'SI-SIR': all_si_sir,
         'SI-SAR': all_si_sar,
         'STOI': all_stoi,
-        'PESQ': all_pesq
+        'PESQ': all_pesq,
+        'F1-score': all_f1score
     }
 
     stats = {}

@@ -21,8 +21,8 @@ from python.models.spp_estimation import timo_mask_estimation
 # Dataset
 dataset_type = 'test'
 
-dataset_size = 'subset'
-#dataset_size = 'complete'
+# dataset_size = 'subset'
+dataset_size = 'complete'
 
 # System 
 cuda = torch.cuda.is_available()
@@ -87,8 +87,6 @@ processed_data_dir = os.path.join('data',dataset_size,'processed/')
 def main():
     file = open('output.log','w') 
 
-    print('- Number of test samples: {}'.format(len(file_paths)))
-
     print('Load models')
     classifier = Classifier([x_dim, h_dim_cl, y_dim])
     classifier.load_state_dict(torch.load(classif_dir, map_location=cuda_device))
@@ -106,6 +104,7 @@ def main():
 
     # Create file list
     file_paths = speech_list(input_speech_dir=input_speech_dir, dataset_type=dataset_type)
+    print('- Number of test samples: {}'.format(len(file_paths)))
 
     print('Start evaluation')
     start = time.time()

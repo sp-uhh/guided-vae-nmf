@@ -8,6 +8,7 @@ import soundfile as sf
 import librosa
 import json
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 from python.dataset.csr1_wjs0_dataset import speech_list, read_dataset
 from python.processing.stft import stft, istft
@@ -24,8 +25,8 @@ from python.visualization import display_multiple_signals
 # Settings
 dataset_type = 'test'
 
-dataset_size = 'subset'
-#dataset_size = 'complete'
+# dataset_size = 'subset'
+dataset_size = 'complete'
 
 input_speech_dir = os.path.join('data',dataset_size,'raw/')
 processed_data_dir = os.path.join('data',dataset_size,'processed/')
@@ -54,8 +55,9 @@ quantile_weight = 0.999
 model_name = 'M2_hdim_128_128_zdim_032_end_epoch_100/M2_epoch_085_vloss_417.69'
 
 # classifier
-#classif_name = 'classif_normdataset_hdim_128_128_end_epoch_100/Classifier_epoch_096_vloss_57.53'
-classif_name = 'oracle_classif'
+# classif_name = 'classif_normdataset_hdim_128_128_end_epoch_100/Classifier_epoch_096_vloss_57.53'
+#classif_name = 'oracle_classif'
+classif_name = 'timo_classif'
 
 # Directory where estimated data is stored
 model_data_dir = os.path.join('data', dataset_size, 'models', model_name, classif_name + '/')
@@ -151,32 +153,35 @@ def main():
                  hop_percent=hop_percent,
                  dtype=dtype) # shape = (freq_bins, frames)                 
 
-        ## mixture signal (wav + spectro)
-        ## target signal (wav + spectro + mask)
-        ## estimated signal (wav + spectro + mask)
-        signal_list = [
-            [x_t, x_tf, None], # mixture: (waveform, tf_signal, no mask)
-            [s_t, s_tf, y], # clean speech
-            [s_hat_t, s_hat_tf, y_hat_hard]
-        ]
-        fig = display_multiple_signals(signal_list,
-                            fs=fs, vmin=vmin, vmax=vmax,
-                            wlen_sec=wlen_sec, hop_percent=hop_percent,
-                            xticks_sec=xticks_sec, fontsize=fontsize)
+        # ## mixture signal (wav + spectro)
+        # ## target signal (wav + spectro + mask)
+        # ## estimated signal (wav + spectro + mask)
+        # signal_list = [
+        #     [x_t, x_tf, None], # mixture: (waveform, tf_signal, no mask)
+        #     [s_t, s_tf, y], # clean speech
+        #     [s_hat_t, s_hat_tf, y_hat_hard]
+        # ]
+        # fig = display_multiple_signals(signal_list,
+        #                     fs=fs, vmin=vmin, vmax=vmax,
+        #                     wlen_sec=wlen_sec, hop_percent=hop_percent,
+        #                     xticks_sec=xticks_sec, fontsize=fontsize)
         
-        # put all metrics in the title of the figure
-        title = "Input SNR = {:.1f} dB \n" \
-            "SI-SDR = {:.1f} dB, " \
-            "SI-SIR = {:.1f} dB, " \
-            "SI-SAR = {:.1f} dB \n" \
-            "STOI = {:.2f}, " \
-            "PESQ = {:.2f} \n" \
-            "F1-score = {:.3f} \n".format(all_snr_db[i], si_sdr, si_sir, si_sar, stoi_s_hat, pesq_s_hat, f1score_s_hat)
+        # # put all metrics in the title of the figure
+        # title = "Input SNR = {:.1f} dB \n" \
+        #     "SI-SDR = {:.1f} dB, " \
+        #     "SI-SIR = {:.1f} dB, " \
+        #     "SI-SAR = {:.1f} dB \n" \
+        #     "STOI = {:.2f}, " \
+        #     "PESQ = {:.2f} \n" \
+        #     "F1-score = {:.3f} \n".format(all_snr_db[i], si_sdr, si_sir, si_sar, stoi_s_hat, pesq_s_hat, f1score_s_hat)
 
-        fig.suptitle(title, fontsize=40)
+        # fig.suptitle(title, fontsize=40)
 
-        # Save figure
-        fig.savefig(model_data_dir + os.path.splitext(file_path)[0] + '_fig.png')
+        # # Save figure
+        # fig.savefig(model_data_dir + os.path.splitext(file_path)[0] + '_fig.png')
+
+        # # Clear figure
+        # plt.close()
 
     # Confidence interval
     metrics = {

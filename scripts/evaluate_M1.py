@@ -13,7 +13,8 @@ from tqdm import tqdm
 from python.dataset.csr1_wjs0_dataset import speech_list
 from python.processing.stft import stft, istft
 from python.processing.target import clean_speech_IBM
-from python.models import mcem_simon, mcem_julius
+from python.models import mcem_julius
+from python.models.mcem import MCEM_M1
 from python.models.models import VariationalAutoencoder
 #from utils import count_parameters
 
@@ -21,8 +22,8 @@ from python.models.models import VariationalAutoencoder
 # Settings
 dataset_type = 'test'
 
-dataset_size = 'subset'
-#dataset_size = 'complete'
+# dataset_size = 'subset'
+dataset_size = 'complete'
 
 input_speech_dir = os.path.join('data',dataset_size,'raw/')
 #processed_data_dir = os.path.joint('data',dataset_size,'processed/')
@@ -135,9 +136,9 @@ def main():
     start = time.time()
     elapsed = []
     
-    for i, file_path in enumerate(file_paths):   
+    for i, file_path in tqdm(enumerate(file_paths)):   
         start_file = time.time()
-        print('- File {}/{}'.format(i+1,len(test_data)), end='\r')
+        print('- File {}/{}'.format(i+1,len(file_paths)), end='\r')
 
 
         x_t, fs_x = sf.read(processed_data_dir + os.path.splitext(file_path)[0] + '_x.wav') # mixture
@@ -192,15 +193,15 @@ def main():
             H_init = np.maximum(np.random.rand(nmf_rank, N), eps, dtype='float32')
             g_init = torch.ones(N).to(device) # float32 by default
 
-            mcem = mcem_simon.MCEM_M1(X=x_tf,
-                                W=W_init,
-                                H=H_init,
-                                g=g_init,
-                                Z=Z_init,
-                                vae=model, device=device, niter=niter,
-                                nsamples_E_step=nsamples_E_step,
-                                burnin_E_step=burnin_E_step, nsamples_WF=nsamples_WF, 
-                                burnin_WF=burnin_WF, var_RW=var_RW)
+            mcem = MCEM_M1(X=x_tf,
+                           W=W_init,
+                           H=H_init,
+                           g=g_init,
+                           Z=Z_init,
+                           vae=model, device=device, niter=niter,
+                           nsamples_E_step=nsamples_E_step,
+                           burnin_E_step=burnin_E_step, nsamples_WF=nsamples_WF, 
+                           burnin_WF=burnin_WF, var_RW=var_RW)
             
             #%% Run speech enhancement algorithm
             cost = mcem.run()
@@ -238,10 +239,10 @@ def main():
 
         end_file = time.time()
         elapsed.append(end_file - start_file)
-        etc = (len(test_data)-i-1)*np.mean(elapsed)
+        etc = (len(file_paths)-i-1)*np.mean(elapsed)
 
     end = time.time()
-    print('- File {}/{}   '.format(len(test_data), len(test_data)))
+    print('- File {}/{}   '.format(len(file_paths), len(file_paths)))
     print('                     total time: {:6.1f} s'.format(end-start))
         
 if __name__ == '__main__':

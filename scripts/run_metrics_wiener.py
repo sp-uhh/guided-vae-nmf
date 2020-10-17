@@ -10,6 +10,7 @@ import json
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
+
 from python.dataset.csr1_wjs0_dataset import speech_list, read_dataset
 from python.processing.stft import stft, istft
 from python.processing.target import clean_speech_IBM
@@ -51,10 +52,8 @@ quantile_fraction = 0.98
 quantile_weight = 0.999
 
 ## Hyperparameters
-# M2
-#model_name = 'dummy_M2_10_epoch_010_vloss_108.79'
-# model_name = 'dummy_M2_alpha_5.0_epoch_100_vloss_466.72'
-model_name = 'M1_hdim_128_128_zdim_032_end_epoch_200/M1_epoch_085_vloss_479.69'
+# Wiener
+model_name = 'wiener_maskloss_normdataset_hdim_128_128_128_128_128_end_epoch_200/Classifier_epoch_096_vloss_46.936924'
 
 model_data_dir = 'data/' + dataset_size + '/models/' + model_name + '/'
 

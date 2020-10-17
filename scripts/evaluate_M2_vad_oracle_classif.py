@@ -21,8 +21,8 @@ from python.models.spp_estimation import timo_mask_estimation
 # Dataset
 dataset_type = 'test'
 
-dataset_size = 'subset'
-#dataset_size = 'complete'
+# dataset_size = 'subset'
+dataset_size = 'complete'
 
 # System 
 cuda = torch.cuda.is_available()
@@ -45,7 +45,9 @@ h_dim = [128, 128]
 eps = 1e-8
 
 # Classifier
-classifier_name = 'oracle_classif'
+# classif_name = 'oracle_classif'
+# classif_name = 'ones_classif'
+classif_name = 'zeros_classif'
 
 # NMF
 nmf_rank = 10
@@ -60,20 +62,13 @@ var_RW = 0.01
 
 # Data directories
 input_speech_dir = os.path.join('data', dataset_size,'raw/')
-output_data_dir = os.path.join('data', dataset_size, 'models', model_name + '/')
+output_data_dir = os.path.join('data', dataset_size, 'models', model_name, classif_name + '/')
 processed_data_dir = os.path.join('data',dataset_size,'processed/')
 
 #####################################################################################################
 
 def main():
     file = open('output.log','w') 
-
-    print('Load data')
-
-    #TODO: modify and just read stored .wav files
-    test_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_et_05_mixture-505.p'), 'rb'))
-
-    print('- Number of test samples: {}'.format(len(test_data)))
 
     print('Load models')
     classifier = None
@@ -90,13 +85,16 @@ def main():
 
     # Create file list
     file_paths = speech_list(input_speech_dir=input_speech_dir, dataset_type=dataset_type)
+    print('- Number of test samples: {}'.format(len(file_paths)))
 
     print('Start evaluation')
     start = time.time()
     elapsed = []
-    for i, (x_t, file_path) in enumerate(zip(test_data, file_paths)):
+    for i, file_path in enumerate(file_paths):
         start_file = time.time()
-        print('- File {}/{}'.format(i+1,len(test_data)), end='\r')
+        print('- File {}/{}'.format(i+1,len(file_paths)), end='\r')
+
+        x_t, fs_x = sf.read(processed_data_dir + os.path.splitext(file_path)[0] + '_x.wav') # mixture
 
         T_orig = len(x_t)
         x_tf = stft(x_t, fs, wlen_sec, win, hop_percent).T # (frames, freq_bins)
@@ -106,7 +104,9 @@ def main():
         s_t, fs_s = sf.read(processed_data_dir + os.path.splitext(file_path)[0] + '_s.wav') # clean speech
         s_tf = stft(s_t, fs, wlen_sec, win, hop_percent)
 
-        y_hat = clean_speech_VAD(s_tf, quantile_fraction=0.98, quantile_weight=0.999)
+        #y_hat = clean_speech_VAD(s_tf, quantile_fraction=0.98, quantile_weight=0.999)
+        #y_hat = np.ones(s_tf.shape[1], dtype='float32')[None]
+        y_hat = np.zeros(s_tf.shape[1], dtype='float32')[None]
         y_hat_hard = torch.from_numpy(y_hat.T).to(device)
 
         # Encode
@@ -139,21 +139,21 @@ def main():
         if not os.path.exists(os.path.dirname(output_path)):
             os.makedirs(os.path.dirname(output_path))
         
-        sf.write(output_path + '_' + classifier_name + '_s_est.wav', s_hat, fs)
-        sf.write(output_path + '_' + classifier_name + '_n_est.wav', n_hat, fs)
+        sf.write(output_path + '_s_est.wav', s_hat, fs)
+        sf.write(output_path + '_n_est.wav', n_hat, fs)
         
         # Save binary mask
-        torch.save(y_hat_hard, output_path + '_' + classifier_name + '_ibm_hard_est.pt')
+        torch.save(y_hat_hard, output_path + '_ibm_hard_est.pt')
 
         end_file = time.time()
         elapsed.append(end_file - start_file)
-        etc = (len(test_data)-i-1)*np.mean(elapsed)
+        etc = (len(file_paths)-i-1)*np.mean(elapsed)
 
         print("                   average time per file: {:4.1f} s      ETC: {:d} h, {:2d} min, {:2d} s"\
             "".format(np.mean(elapsed), int(etc/(60*60)), int((etc/60) % 60), int(etc % 60)), end='\r')
 
     end = time.time()
-    print('- File {}/{}   '.format(len(test_data), len(test_data)))
+    print('- File {}/{}   '.format(len(file_paths), len(file_paths)))
     print('                     total time: {:6.1f} s'.format(end-start))
         
 if __name__ == '__main__':

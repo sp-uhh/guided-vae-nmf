@@ -403,7 +403,7 @@ class MCEM_M1(EM):
                 Z_sampled_t[:,cpt,:] = torch.t(Z_t)
                 cpt += 1
         
-        print('averaged acceptance rate: %f' % (averaged_acc_rate.item()))
+        #print('averaged acceptance rate: %f' % (averaged_acc_rate.item()))
         
         return Z_sampled_t        
         

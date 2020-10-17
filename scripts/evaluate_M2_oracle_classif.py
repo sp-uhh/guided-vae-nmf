@@ -21,8 +21,8 @@ from python.models.spp_estimation import timo_mask_estimation
 # Dataset
 dataset_type = 'test'
 
-dataset_size = 'subset'
-#dataset_size = 'complete'
+# dataset_size = 'subset'
+dataset_size = 'complete'
 
 # System 
 cuda = torch.cuda.is_available()

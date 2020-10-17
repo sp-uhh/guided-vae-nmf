@@ -151,7 +151,7 @@ def main():
         s_vad = clean_speech_VAD(s_tf,
                                 quantile_fraction=quantile_fraction,
                                 quantile_weight=quantile_weight)
-        s_vad = s_vad[0]
+        s_vad = s_vad[0] # shape = (frames)
         
         # Transpose to match librosa.display
         y_hat_hard = y_hat_hard.T
@@ -159,7 +159,7 @@ def main():
 
         # Transform to numpy.array
         y_hat_hard = y_hat_hard.cpu().numpy()
-        y_hat_hard = y_hat_hard[0]
+        y_hat_hard = y_hat_hard[0] # shape = (frames)
 
         # F1-score
         f1score_s_hat = f1_score(s_vad, y_hat_hard, average="binary")

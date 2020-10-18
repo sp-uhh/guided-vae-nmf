@@ -21,11 +21,7 @@ dataset_types = ['train', 'validation']
 dataset_size = 'complete'
 
 input_speech_dir = os.path.join('data', dataset_size, 'raw/')
-
-input_noise_dir = 'data/complete/raw/qutnoise_databases/' # change the name of the subfolder in your computer
-output_noise_dir = 'data/complete/processed/qutnoise_databases/' # change the name of the subfolder in your computer
-
-output_pickle_dir = os.path.join('data', dataset_size, 'pickle', 'ntcd_timit/')
+output_pickle_dir = os.path.join('data', dataset_size, 'pickle/')
 
 ## STFT
 video_frame_rate = 29.970030  # frames per second

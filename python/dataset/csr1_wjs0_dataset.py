@@ -68,17 +68,20 @@ def write_dataset(data,
         dataset_type ([type]): [description]
         suffix (str, optional): [description]. Defaults to 'frames'.
     """
+
+    data_dir = 'CSR-1-WSJ-0/'
+
     ### Training data
     if dataset_type == 'train':
-        data_dir = 'si_tr_s'
+        data_dir += 'si_tr_s'
 
     ### Validation data
     if dataset_type == 'validation':
-        data_dir = 'si_dt_05'
+        data_dir += 'si_dt_05'
 
     ### Test data
     if dataset_type == 'test':
-        data_dir = 'si_et_05'
+        data_dir += 'si_et_05'
     
     if not os.path.exists(output_data_dir):
         os.makedirs(output_data_dir)
@@ -103,6 +106,9 @@ def read_dataset(data_dir,
         dataset_type ([type]): [description]
         suffix (str, optional): [description]. Defaults to 'frames'.
     """
+
+    data_dir += 'CSR-1-WSJ-0/'
+
     ### Training data
     if dataset_type == 'train':
         data_dir += 'si_tr_s'

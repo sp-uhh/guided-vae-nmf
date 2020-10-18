@@ -5,8 +5,9 @@ import numpy as np
 import soundfile as sf
 import os
 from tqdm import tqdm
+import math
 
-from python.dataset.csr1_wjs0_dataset import speech_list, write_dataset
+from python.dataset.ntcd_timit_dataset import speech_list, write_dataset
 from python.dataset.demand_database import noise_list, preprocess_noise, noise_segment
 from python.processing.stft import stft
 from python.processing.target import clean_speech_IBM, clean_speech_VAD, ideal_wiener_mask
@@ -29,14 +30,18 @@ output_wav_dir = os.path.join('data', dataset_size, 'processed/')
 output_pickle_dir = os.path.join('data', dataset_size, 'pickle/')
 
 ## STFT
+video_frame_rate = 29.970030  # frames per second
 fs = int(16e3) # Sampling rate
 wlen_sec = 64e-3 # window length in seconds
-hop_percent = 0.25  # hop size as a percentage of the window length
+hop_percent = math.floor((1 / (wlen_sec * video_frame_rate)) * 1e4) / 1e4  # hop size as a percentage of the window length
 win = 'hann' # type of window
+center = False # see https://librosa.org/doc/0.7.2/_modules/librosa/core/spectrum.html#stft
+pad_mode = 'reflect' # This argument is ignored if center = False
+pad_at_end = True # pad audio file at end to match same size after stft + istft
 dtype = 'complex64'
 
 ## Ideal binary mask
-quantile_fraction = 0.98
+quantile_fraction = 0.999
 quantile_weight = 0.999
 
 # Ideal wiener mask
@@ -60,9 +65,9 @@ def process_noise():
         for noise_type, samples in noise_paths.items():
 
             if dataset_type == 'train':
-                output_noise_path = output_noise_dir + 'si_tr_s' + '/' + noise_type + '.wav'
+                output_noise_path = output_noise_dir + 'train' + '/' + noise_type + '.wav'
             if dataset_type == 'validation':
-                output_noise_path = output_noise_dir + 'si_dt_05' + '/' + noise_type + '.wav'
+                output_noise_path = output_noise_dir + 'dev' + '/' + noise_type + '.wav'
 
             #if noise already preprocessed, read files directly
             if os.path.exists(output_noise_path):
@@ -111,7 +116,7 @@ def main():
         
         noise_index = np.random.randint(len(noise_types), size=len(file_paths))
         
-        snrs = [-5, -2.5, 0, 2.5, 5.0]
+        snrs = [-15.0, -10.0, -5.0, 0.0, 5.0]
         snrs_index = np.random.randint(len(snrs), size=len(file_paths))
         
         # Create noise audios
@@ -144,15 +149,12 @@ def main():
 
         # Do 2 iterations to save separately noisy_spectro and noisy_labels (RAM issues)
         # for iteration in range(2):
-        for iteration in range(1):
+        for iteration in range(2):
 
             # Loop over the speech files
             for i, file_path in tqdm(enumerate(file_paths)):
 
                 speech, fs_speech = sf.read(input_speech_dir + file_path, samplerate=None)
-
-                # Cut burst at begining of file
-                speech = speech[int(0.1*fs):]
 
                 # Normalize audio
                 speech = speech/(np.max(np.abs(speech)))
@@ -179,12 +181,6 @@ def main():
 
                 mixture = speech + noise
 
-                # # Normalize by max of speech, noise, speech+noise
-                # norm = np.max(abs(np.concatenate([speech, noise, speech+noise])))
-                # mixture = (speech+noise) / norm
-                # speech /= norm
-                # noise /= norm
-
                 if dataset_size == 'subset':
                     # Save .wav files, just to check if it working
                     output_path = output_wav_dir + file_path
@@ -199,12 +195,29 @@ def main():
 
                 if iteration == 0:                
                     # TF reprepsentation
-                    speech_tf = stft(speech, fs=fs, wlen_sec=wlen_sec, win=win, 
-                        hop_percent=hop_percent, dtype=dtype)
-                    
+                    speech_tf = stft(speech,
+                                    fs=fs,
+                                    wlen_sec=wlen_sec,
+                                    win=win, 
+                                    hop_percent=hop_percent,
+                                    center=center,
+                                    pad_mode=pad_mode,
+                                    pad_at_end=pad_at_end,
+                                    dtype=dtype) # shape = (freq_bins, frames)
+
+                    # noisy_labels.append(abs(speech_tf))
+
                     # # TF reprepsentation
-                    # noise_tf = stft(noise, fs=fs, wlen_sec=wlen_sec, win=win, 
-                    #     hop_percent=hop_percent, dtype=dtype)
+                    # noise_tf = stft(noise,
+                    #                 fs=fs,
+                    #                 wlen_sec=wlen_sec,
+                    #                 win=win, 
+                    #                 hop_percent=hop_percent,
+                    #                 center=center,
+                    #                 pad_mode=pad_mode,
+                    #                 pad_at_end=pad_at_end,
+                    #                 dtype=dtype) # shape = (freq_bins, frames)
+
                     
                     # # wiener mask
                     # speech_wiener_mask = ideal_wiener_mask(speech_tf,
@@ -218,7 +231,7 @@ def main():
                                             quantile_weight=quantile_weight)
                     noisy_labels.append(speech_ibm)
                     
-                    # # binary mask
+                    # # VAD
                     # speech_vad = clean_speech_VAD(speech_tf,
                     #                         quantile_fraction=quantile_fraction,
                     #                         quantile_weight=quantile_weight)
@@ -226,8 +239,15 @@ def main():
 
                 if iteration == 1:
                     # TF reprepsentation
-                    mixture_tf = stft(mixture, fs=fs, wlen_sec=wlen_sec, win=win, 
-                        hop_percent=hop_percent, dtype=dtype)
+                    mixture_tf = stft(mixture,
+                                    fs=fs,
+                                    wlen_sec=wlen_sec,
+                                    win=win, 
+                                    hop_percent=hop_percent,
+                                    center=center,
+                                    pad_mode=pad_mode,
+                                    pad_at_end=pad_at_end,
+                                    dtype=dtype) # shape = (freq_bins, frames)
                     
                                 
                     noisy_spectrograms.append(np.power(abs(mixture_tf), 2))

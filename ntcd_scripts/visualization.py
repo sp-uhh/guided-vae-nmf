@@ -32,8 +32,12 @@ pad_mode = 'reflect' # This argument is ignored if center = False
 pad_at_end = True # pad audio file at end to match same size after stft + istft
 dtype = 'complex64'
 
+# ## VAD
+# quantile_fraction = 0.999
+# quantile_weight = 0.999
+
 ## IBM
-quantile_fraction = 0.9995
+quantile_fraction = 0.999
 quantile_weight = 0.999
 
 ## Plot spectrograms
@@ -66,28 +70,28 @@ def main():
                     pad_at_end=pad_at_end,
                     dtype=dtype) # shape = (freq_bins, frames)
         
-        # # binary mask
-        # x_ibm = clean_speech_IBM(x_tf,
-        #                         quantile_fraction=quantile_fraction,
-        #                         quantile_weight=quantile_weight)
+        # binary mask
+        x_ibm = clean_speech_IBM(x_tf,
+                                quantile_fraction=quantile_fraction,
+                                quantile_weight=quantile_weight)
         
-        # compute only VAD
-        x_vad = clean_speech_VAD(x_tf,
-                        quantile_fraction=quantile_fraction,
-                        quantile_weight=quantile_weight)
-        x_vad = x_vad[0] # shape = (frames)
+        # # compute only VAD
+        # x_vad = clean_speech_VAD(x_tf,
+        #                 quantile_fraction=quantile_fraction,
+        #                 quantile_weight=quantile_weight)
+        # x_vad = x_vad[0] # shape = (frames)
 
-        # # Plot waveplot + spectrogram + binary mask
-        # fig = display_wav_spectro_mask(x, x_tf, x_ibm,
-        #                          fs=fs, vmin=vmin, vmax=vmax,
-        #                          wlen_sec=wlen_sec, hop_percent=hop_percent,
-        #                          xticks_sec=xticks_sec, fontsize=fontsize)
-        
-        # Plot waveplot + spectrogram + vad
-        fig = display_wav_spectro_mask(x, x_tf,x_vad,
+        # Plot waveplot + spectrogram + binary mask
+        fig = display_wav_spectro_mask(x, x_tf, x_ibm,
                                  fs=fs, vmin=vmin, vmax=vmax,
                                  wlen_sec=wlen_sec, hop_percent=hop_percent,
                                  xticks_sec=xticks_sec, fontsize=fontsize)
+        
+        # # Plot waveplot + spectrogram + vad
+        # fig = display_wav_spectro_mask(x, x_tf,x_vad,
+        #                          fs=fs, vmin=vmin, vmax=vmax,
+        #                          wlen_sec=wlen_sec, hop_percent=hop_percent,
+        #                          xticks_sec=xticks_sec, fontsize=fontsize)
 
         # signal_list = [
         #     [x, x_tf, x_ibm], # mixture: (waveform, tf_signal, no mask)
@@ -104,8 +108,8 @@ def main():
         fig.suptitle(title, fontsize=40)
 
         # Save figure
-        # output_path = output_data_dir + os.path.splitext(path)[0] + '_fig.png'
-        output_path = output_data_dir + os.path.splitext(path)[0] + '_fig_vad.png'
+        output_path = output_data_dir + os.path.splitext(path)[0] + '_fig_ibm.png'
+        # output_path = output_data_dir + os.path.splitext(path)[0] + '_fig_vad.png'
         if not os.path.exists(os.path.dirname(output_path)):
             os.makedirs(os.path.dirname(output_path))
         fig.savefig(output_path)

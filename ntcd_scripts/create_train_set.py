@@ -39,7 +39,7 @@ pad_at_end = True # pad audio file at end to match same size after stft + istft
 dtype = 'complex64'
 
 ## Ideal binary mask
-quantile_fraction = 0.98
+quantile_fraction = 0.999
 quantile_weight = 0.999
 
 def main():

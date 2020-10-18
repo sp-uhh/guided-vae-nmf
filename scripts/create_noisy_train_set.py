@@ -17,8 +17,8 @@ from python.utils import open_file
 ## Dataset
 dataset_types = ['train', 'validation']
 
-dataset_size = 'subset'
-# dataset_size = 'complete'
+# dataset_size = 'subset'
+dataset_size = 'complete'
 
 input_speech_dir = os.path.join('data', dataset_size, 'raw/')
 
@@ -202,15 +202,18 @@ def main():
                     speech_tf = stft(speech, fs=fs, wlen_sec=wlen_sec, win=win, 
                         hop_percent=hop_percent, dtype=dtype)
                     
-                    # TF reprepsentation
-                    noise_tf = stft(noise, fs=fs, wlen_sec=wlen_sec, win=win, 
-                        hop_percent=hop_percent, dtype=dtype)
+                    noisy_labels.append(abs(speech_tf))
+
                     
-                    # wiener mask
-                    speech_wiener_mask = ideal_wiener_mask(speech_tf,
-                                             noise_tf,
-                                             eps)
-                    noisy_labels.append(speech_wiener_mask)
+                    # # TF reprepsentation
+                    # noise_tf = stft(noise, fs=fs, wlen_sec=wlen_sec, win=win, 
+                    #     hop_percent=hop_percent, dtype=dtype)
+                    
+                    # # wiener mask
+                    # speech_wiener_mask = ideal_wiener_mask(speech_tf,
+                    #                          noise_tf,
+                    #                          eps)
+                    # noisy_labels.append(speech_wiener_mask)
 
                     # # binary mask
                     # speech_ibm = clean_speech_IBM(speech_tf,
@@ -234,12 +237,18 @@ def main():
 
             if iteration == 0:
                 noisy_labels = np.concatenate(noisy_labels, axis=1)
-
+                
                 # write spectrograms
                 write_dataset(noisy_labels,
                             output_data_dir=output_pickle_dir,
                             dataset_type=dataset_type,
-                            suffix='noisy_wiener_labels')
+                            suffix='noisy_abs_frames_labels')
+
+                # # write spectrograms
+                # write_dataset(noisy_labels,
+                #             output_data_dir=output_pickle_dir,
+                #             dataset_type=dataset_type,
+                #             suffix='noisy_wiener_labels')
 
                 # # write spectrograms
                 # write_dataset(noisy_labels,

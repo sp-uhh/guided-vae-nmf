@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 from python.utils import count_parameters
 from python.data import SpectrogramLabeledFrames
 from python.models.models import Classifier
-from python.models.utils import mean_square_error_signal, mean_square_error_mask
+from python.models.utils import mean_square_error_signal, mean_square_error_mask, magnitude_spectrum_approxiamation_loss
 
 ##################################### SETTINGS #####################################################
 
@@ -21,7 +21,7 @@ dataset_size = 'complete'
 
 # System 
 cuda = torch.cuda.is_available()
-cuda_device = "cuda:0"
+cuda_device = "cuda:1"
 device = torch.device(cuda_device if cuda else "cpu")
 num_workers = 8
 pin_memory = True
@@ -31,7 +31,7 @@ eps = 1e-8
 # Deep Generative Model
 x_dim = 513 
 y_dim = 513
-h_dim = [128, 128]
+h_dim = [128, 128, 128, 128, 128]
 batch_norm = False
 std_norm =True
 
@@ -42,7 +42,7 @@ log_interval = 250
 start_epoch = 1
 end_epoch = 200
 
-model_name = 'wiener_avgfreq_maskloss_normdataset_input_amplitude_hdim_{:03d}_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], end_epoch)
+model_name = 'wiener_msaloss_normdataset_input_amplitude_hdim_{:03d}_{:03d}_{:03d}_{:03d}_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], h_dim[2], h_dim[3], h_dim[4], end_epoch)
 
 #####################################################################################################
 
@@ -119,7 +119,8 @@ def main():
                 y_hat_soft = model(x)  
 
             # loss = mean_square_error_signal(x=torch.sqrt(x), y=y, y_hat=y_hat_soft)
-            loss = mean_square_error_mask(y=y, y_hat=y_hat_soft)
+            #loss = mean_square_error_mask(y=y, y_hat=y_hat_soft)
+            loss = magnitude_spectrum_approxiamation_loss(x=torch.sqrt(x), s=y, y_hat=y_hat_soft)
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
@@ -161,7 +162,8 @@ def main():
                     y_hat_soft = model(x)  
 
                 # loss = mean_square_error_signal(x=torch.sqrt(x), y=y, y_hat=y_hat_soft)
-                loss = mean_square_error_mask(y=y, y_hat=y_hat_soft)
+                #loss = mean_square_error_mask(y=y, y_hat=y_hat_soft)
+                loss = magnitude_spectrum_approxiamation_loss(x=torch.sqrt(x), s=y, y_hat=y_hat_soft)
 
                 total_loss += loss.item()
 

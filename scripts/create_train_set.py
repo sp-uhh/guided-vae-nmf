@@ -34,7 +34,7 @@ win = 'hann' # type of window
 dtype = 'complex64'
 
 ## Ideal binary mask
-quantile_fraction = 0.98
+quantile_fraction = 0.9999
 quantile_weight = 0.999
 
 def main():

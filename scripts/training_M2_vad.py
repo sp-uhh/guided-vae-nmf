@@ -31,7 +31,7 @@ eps = 1e-8
 # Deep Generative Model
 x_dim = 513 
 y_dim = 1
-z_dim = 16
+z_dim = 32
 h_dim = [128, 128]
 std_norm = True
 
@@ -45,9 +45,9 @@ log_interval = 250
 start_epoch = 1
 end_epoch = 200
 
-#model_name = 'M2_VAD_hdim_{:03d}_{:03d}_zdim_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], z_dim, end_epoch)
+model_name = 'M2_VAD_quantile_0.9999_hdim_{:03d}_{:03d}_zdim_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], z_dim, end_epoch)
 # model_name = 'M2_VAD_hdim_{:03d}_zdim_{:03d}_end_epoch_{:03d}'.format(h_dim[0], z_dim, end_epoch)
-model_name = 'M2_VAD_normdataset_hdim_{:03d}_zdim_{:03d}_end_epoch_{:03d}'.format(h_dim[0], z_dim, end_epoch)
+#model_name = 'M2_VAD_normdataset_hdim_{:03d}_zdim_{:03d}_end_epoch_{:03d}'.format(h_dim[0], z_dim, end_epoch)
 
 #####################################################################################################
 

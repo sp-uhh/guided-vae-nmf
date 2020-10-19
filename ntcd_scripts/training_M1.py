@@ -19,7 +19,7 @@ dataset_size = 'complete'
 
 # System 
 cuda = torch.cuda.is_available()
-device = torch.device("cuda:1" if cuda else "cpu")
+device = torch.device("cuda:0" if cuda else "cpu")
 num_workers = 8
 pin_memory = True
 non_blocking = True
@@ -35,7 +35,7 @@ batch_size = 128
 learning_rate = 1e-3
 log_interval = 250
 start_epoch = 1
-end_epoch = 200
+end_epoch = 500
 
 model_name = 'ntcd_M1_hdim_{:03d}_{:03d}_zdim_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], z_dim, end_epoch)
 # model_name = 'M1_hdim_{:03d}_zdim_{:03d}_end_epoch_{:03d}'.format(h_dim[0], z_dim, end_epoch)

@@ -70,6 +70,9 @@ def write_dataset(data,
     """
 
     data_dir = 'CSR-1-WSJ-0/'
+        
+    if not os.path.exists(output_data_dir + data_dir):
+        os.makedirs(output_data_dir + data_dir)
 
     ### Training data
     if dataset_type == 'train':
@@ -82,9 +85,6 @@ def write_dataset(data,
     ### Test data
     if dataset_type == 'test':
         data_dir += 'si_et_05'
-    
-    if not os.path.exists(output_data_dir):
-        os.makedirs(output_data_dir)
 
     output_data_path = output_data_dir + data_dir + '_' + suffix + '.p'
 

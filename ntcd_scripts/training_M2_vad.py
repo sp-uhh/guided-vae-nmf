@@ -21,7 +21,7 @@ dataset_size = 'complete'
 
 # System 
 cuda = torch.cuda.is_available()
-cuda_device = "cuda:2"
+cuda_device = "cuda:3"
 device = torch.device(cuda_device if cuda else "cpu")
 num_workers = 8
 pin_memory = True
@@ -43,7 +43,7 @@ batch_size = 128
 learning_rate = 1e-3
 log_interval = 250
 start_epoch = 1
-end_epoch = 200
+end_epoch = 500
 
 model_name = 'ntcd_M2_VAD_hdim_{:03d}_{:03d}_zdim_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], z_dim, end_epoch)
 # model_name = 'M2_VAD_hdim_{:03d}_zdim_{:03d}_end_epoch_{:03d}'.format(h_dim[0], z_dim, end_epoch)

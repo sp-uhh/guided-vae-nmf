@@ -46,6 +46,59 @@ def clean_speech_VAD(observations,
     vad = vad[None] # vad.shape = (1, frames)
     return vad
 
+def noise_robust_clean_speech_VAD(observations,
+                                  quantile_fraction_begin=0.93,
+                                  quantile_fraction_end=0.99,
+                                  quantile_weight=0.999):
+    """
+    Create VAD labels robust to noisy speech recordings.
+    In particular, the labels are robust to noise occuring before speech.
+
+    Args:
+        observations ([type]): [description]
+        quantile_fraction_begin (float, optional): [description]. Defaults to 0.93.
+        quantile_fraction_end (float, optional): [description]. Defaults to 0.99.
+        quantile_weight (float, optional): [description]. Defaults to 0.999.
+
+    Returns:
+        [type]: [description]
+    """
+    vad_labels = clean_speech_VAD(observations, quantile_fraction=quantile_fraction_begin, quantile_weight=quantile_weight)
+    vad_labels = vad_labels[0]
+    vad_labels_end = clean_speech_VAD(observations, quantile_fraction=quantile_fraction_end, quantile_weight=quantile_weight)
+    vad_labels_end = vad_labels_end[0]
+    indices_begin = np.nonzero(vad_labels)
+    indices_end = np.nonzero(vad_labels_end)
+    vad_labels[indices_begin[0][0]:indices_end[0][-1]] = (indices_end[0][-1]-indices_begin[0][0])*[1]
+    vad_labels = vad_labels[None] # vad_labels.shape = (1, frames)
+    return vad_labels
+
+def noise_robust_clean_speech_IBM(observations,
+                                  vad_quantile_fraction_begin=0.93,
+                                  vad_quantile_fraction_end=0.99,
+                                  ibm_quantile_fraction=0.999,
+                                  quantile_weight=0.999):
+    """
+    Create IBM labels robust to noisy speech recordings using noise-robst VAD.
+    In particular, the labels are robust to noise occuring before speech.
+
+    Args:
+        observations ([type]): [description]
+        quantile_fraction_begin (float, optional): [description]. Defaults to 0.93.
+        quantile_fraction_end (float, optional): [description]. Defaults to 0.99.
+        quantile_weight (float, optional): [description]. Defaults to 0.999.
+
+    Returns:
+        [type]: [description]
+    """
+    vad_labels = noise_robust_clean_speech_VAD(observations,
+                                               quantile_fraction_begin=vad_quantile_fraction_begin,
+                                               quantile_fraction_end=vad_quantile_fraction_end,
+                                               quantile_weight=quantile_weight)
+    ibm_labels = clean_speech_IBM(observations, quantile_fraction=ibm_quantile_fraction, quantile_weight=quantile_weight)
+    ibm_labels = ibm_labels * vad_labels
+    return ibm_labels
+
 def ideal_wiener_mask(speech_tf,
                       noise_tf,
                       eps=1e-8):

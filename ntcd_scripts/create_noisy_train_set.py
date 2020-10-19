@@ -10,7 +10,7 @@ import math
 from python.dataset.ntcd_timit_dataset import speech_list, write_dataset
 from python.dataset.demand_database import noise_list, preprocess_noise, noise_segment
 from python.processing.stft import stft
-from python.processing.target import clean_speech_IBM, clean_speech_VAD, ideal_wiener_mask
+from python.processing.target import noise_robust_clean_speech_IBM, noise_robust_clean_speech_VAD, ideal_wiener_mask
 from python.utils import open_file
 
 
@@ -40,8 +40,13 @@ pad_mode = 'reflect' # This argument is ignored if center = False
 pad_at_end = True # pad audio file at end to match same size after stft + istft
 dtype = 'complex64'
 
-## Ideal binary mask
-quantile_fraction = 0.999
+## Noise robust VAD
+vad_quantile_fraction_begin = 0.93
+vad_quantile_fraction_end = 0.99
+quantile_weight = 0.999
+
+## Noise robust IBM
+ibm_quantile_fraction = 0.999
 quantile_weight = 0.999
 
 # Ideal wiener mask
@@ -226,17 +231,20 @@ def main():
                     #                          eps)
                     # noisy_labels.append(speech_wiener_mask)
 
-                    # # binary mask
-                    # speech_ibm = clean_speech_IBM(speech_tf,
-                    #                         quantile_fraction=quantile_fraction,
-                    #                         quantile_weight=quantile_weight)
-                    # noisy_labels.append(speech_ibm)
+                    # binary mask
+                    speech_ibm = noise_robust_clean_speech_IBM(speech_tf,
+                                                        vad_quantile_fraction_begin=vad_quantile_fraction_begin,
+                                                        vad_quantile_fraction_end=vad_quantile_fraction_end,
+                                                        ibm_quantile_fraction=ibm_quantile_fraction,
+                                                        quantile_weight=quantile_weight)
+                    noisy_labels.append(speech_ibm)
                     
-                    # VAD
-                    speech_vad = clean_speech_VAD(speech_tf,
-                                            quantile_fraction=quantile_fraction,
-                                            quantile_weight=quantile_weight)
-                    noisy_labels.append(speech_vad)
+                    # # VAD
+                    # speech_vad = noise_robust_clean_speech_VAD(speech_tf,
+                    #                                     quantile_fraction_begin=vad_quantile_fraction_begin,
+                    #                                     quantile_fraction_end=vad_quantile_fraction_end,
+                    #                                     quantile_weight=quantile_weight)
+                    # noisy_labels.append(speech_vad)
 
                 if iteration == 1:
                     # TF reprepsentation

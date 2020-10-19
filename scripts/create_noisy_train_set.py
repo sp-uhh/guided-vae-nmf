@@ -97,54 +97,54 @@ def main():
 
     for dataset_type in dataset_types:
 
-        # Create file list
-        file_paths = speech_list(input_speech_dir=input_speech_dir,
-                                dataset_type=dataset_type)
-        
-        # Create SNR list
-        np.random.seed(0)
-        
-        if dataset_type == 'train':
-            noise_types = ['domestic', 'nature', 'office', 'transportation']
-        if dataset_type == 'validation':
-            noise_types = ['nature', 'office', 'public', 'transportation']
-        
-        noise_index = np.random.randint(len(noise_types), size=len(file_paths))
-        
-        snrs = [-5, -2.5, 0, 2.5, 5.0]
-        snrs_index = np.random.randint(len(snrs), size=len(file_paths))
-        
-        # Create noise audios
-        noise_paths = noise_list(input_noise_dir=input_noise_dir,
-                                dataset_type=dataset_type)
-        noise_audios = {}
-
-        # Load the noise files
-        for noise_type, samples in noise_paths.items():
-
-            if dataset_type == 'train':
-                output_noise_path = output_noise_dir + 'si_tr_s' + '/' + noise_type + '.wav'
-            if dataset_type == 'validation':
-                output_noise_path = output_noise_dir + 'si_dt_05' + '/' + noise_type + '.wav'
-
-            #if noise already preprocessed, read files directly
-            if os.path.exists(output_noise_path):
-                
-                noise_audio, fs_noise = sf.read(output_noise_path)
-                
-                if fs != fs_noise:
-                    raise ValueError('Unexpected sampling rate. Did you preprocess the 16kHz version of the DEMAND database?')
-
-                noise_audios[noise_type] = noise_audio
-
-        # Create mixture
-        noisy_spectrograms = []
-        noisy_labels = []
-        all_snr_dB = []
-
         # Do 2 iterations to save separately noisy_spectro and noisy_labels (RAM issues)
         # for iteration in range(2):
         for iteration in range(1):
+
+            # Create file list
+            file_paths = speech_list(input_speech_dir=input_speech_dir,
+                                    dataset_type=dataset_type)
+            
+            # Create SNR list
+            np.random.seed(0)
+            
+            if dataset_type == 'train':
+                noise_types = ['domestic', 'nature', 'office', 'transportation']
+            if dataset_type == 'validation':
+                noise_types = ['nature', 'office', 'public', 'transportation']
+            
+            noise_index = np.random.randint(len(noise_types), size=len(file_paths))
+            
+            snrs = [-5, -2.5, 0, 2.5, 5.0]
+            snrs_index = np.random.randint(len(snrs), size=len(file_paths))
+            
+            # Create noise audios
+            noise_paths = noise_list(input_noise_dir=input_noise_dir,
+                                    dataset_type=dataset_type)
+            noise_audios = {}
+
+            # Load the noise files
+            for noise_type, samples in noise_paths.items():
+
+                if dataset_type == 'train':
+                    output_noise_path = output_noise_dir + 'si_tr_s' + '/' + noise_type + '.wav'
+                if dataset_type == 'validation':
+                    output_noise_path = output_noise_dir + 'si_dt_05' + '/' + noise_type + '.wav'
+
+                #if noise already preprocessed, read files directly
+                if os.path.exists(output_noise_path):
+                    
+                    noise_audio, fs_noise = sf.read(output_noise_path)
+                    
+                    if fs != fs_noise:
+                        raise ValueError('Unexpected sampling rate. Did you preprocess the 16kHz version of the DEMAND database?')
+
+                    noise_audios[noise_type] = noise_audio
+
+            # Create mixture
+            noisy_spectrograms = []
+            noisy_labels = []
+            all_snr_dB = []
 
             # Loop over the speech files
             for i, file_path in tqdm(enumerate(file_paths)):

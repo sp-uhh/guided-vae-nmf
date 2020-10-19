@@ -17,8 +17,8 @@ from python.utils import open_file
 ## Dataset
 dataset_types = ['train', 'validation']
 
-dataset_size = 'subset'
-# dataset_size = 'complete'
+# dataset_size = 'subset'
+dataset_size = 'complete'
 
 input_speech_dir = os.path.join('data', dataset_size, 'raw/')
 output_pickle_dir = os.path.join('data', dataset_size, 'pickle/')
@@ -78,22 +78,22 @@ def main():
                                  pad_at_end=pad_at_end,
                                  dtype=dtype) # shape = (freq_bins, frames)
 
-                # # binary mask
-                # speech_ibm = noise_robust_clean_speech_IBM(speech_tf,
-                #                                     vad_quantile_fraction_begin=vad_quantile_fraction_begin,
-                #                                     vad_quantile_fraction_end=vad_quantile_fraction_end,
-                #                                     ibm_quantile_fraction=ibm_quantile_fraction,
-                #                                     quantile_weight=quantile_weight)
-                                    
-                # vad
-                speech_vad = noise_robust_clean_speech_VAD(speech_tf,
-                                                    quantile_fraction_begin=vad_quantile_fraction_begin,
-                                                    quantile_fraction_end=vad_quantile_fraction_end,
+                # binary mask
+                speech_ibm = noise_robust_clean_speech_IBM(speech_tf,
+                                                    vad_quantile_fraction_begin=vad_quantile_fraction_begin,
+                                                    vad_quantile_fraction_end=vad_quantile_fraction_end,
+                                                    ibm_quantile_fraction=ibm_quantile_fraction,
                                                     quantile_weight=quantile_weight)
+                                    
+                # # vad
+                # speech_vad = noise_robust_clean_speech_VAD(speech_tf,
+                #                                     quantile_fraction_begin=vad_quantile_fraction_begin,
+                #                                     quantile_fraction_end=vad_quantile_fraction_end,
+                #                                     quantile_weight=quantile_weight)
                 
                 if iteration == 0:
-                    # labels.append(speech_ibm)
-                    labels.append(speech_vad)
+                    labels.append(speech_ibm)
+                    # labels.append(speech_vad)
 
                 if iteration == 1:
                     spectrograms.append(np.power(abs(speech_tf), 2))
@@ -101,17 +101,17 @@ def main():
             if iteration == 0:
                 labels = np.concatenate(labels, axis=1)
                 
-                # # write spectrograms
-                # write_dataset(labels,
-                #             output_data_dir=output_pickle_dir,
-                #             dataset_type=dataset_type,
-                #             suffix='labels')
-
                 # write spectrograms
                 write_dataset(labels,
                             output_data_dir=output_pickle_dir,
                             dataset_type=dataset_type,
-                            suffix='vad_labels')
+                            suffix='labels')
+
+                # # write spectrograms
+                # write_dataset(labels,
+                #             output_data_dir=output_pickle_dir,
+                #             dataset_type=dataset_type,
+                #             suffix='vad_labels')
 
                 del labels            
 

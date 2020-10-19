@@ -211,7 +211,7 @@ def main():
                                     pad_at_end=pad_at_end,
                                     dtype=dtype) # shape = (freq_bins, frames)
 
-                    # noisy_labels.append(abs(speech_tf))
+                    noisy_labels.append(abs(speech_tf))
 
                     # # TF reprepsentation
                     # noise_tf = stft(noise,
@@ -231,13 +231,13 @@ def main():
                     #                          eps)
                     # noisy_labels.append(speech_wiener_mask)
 
-                    # binary mask
-                    speech_ibm = noise_robust_clean_speech_IBM(speech_tf,
-                                                        vad_quantile_fraction_begin=vad_quantile_fraction_begin,
-                                                        vad_quantile_fraction_end=vad_quantile_fraction_end,
-                                                        ibm_quantile_fraction=ibm_quantile_fraction,
-                                                        quantile_weight=quantile_weight)
-                    noisy_labels.append(speech_ibm)
+                    # # binary mask
+                    # speech_ibm = noise_robust_clean_speech_IBM(speech_tf,
+                    #                                     vad_quantile_fraction_begin=vad_quantile_fraction_begin,
+                    #                                     vad_quantile_fraction_end=vad_quantile_fraction_end,
+                    #                                     ibm_quantile_fraction=ibm_quantile_fraction,
+                    #                                     quantile_weight=quantile_weight)
+                    # noisy_labels.append(speech_ibm)
                     
                     # # VAD
                     # speech_vad = noise_robust_clean_speech_VAD(speech_tf,
@@ -264,6 +264,12 @@ def main():
             if iteration == 0:
                 noisy_labels = np.concatenate(noisy_labels, axis=1)
 
+                # write spectrograms
+                write_dataset(noisy_labels,
+                            output_data_dir=output_pickle_dir,
+                            dataset_type=dataset_type,
+                            suffix='noisy_abs_frames_labels')
+
                 # # write spectrograms
                 # write_dataset(noisy_labels,
                 #             output_data_dir=output_pickle_dir,
@@ -276,11 +282,11 @@ def main():
                 #             dataset_type=dataset_type,
                 #             suffix='noisy_labels')
 
-                # write spectrograms
-                write_dataset(noisy_labels,
-                            output_data_dir=output_pickle_dir,
-                            dataset_type=dataset_type,
-                            suffix='noisy_vad_labels')
+                # # write spectrograms
+                # write_dataset(noisy_labels,
+                #             output_data_dir=output_pickle_dir,
+                #             dataset_type=dataset_type,
+                #             suffix='noisy_vad_labels')
 
                 del noisy_labels
 

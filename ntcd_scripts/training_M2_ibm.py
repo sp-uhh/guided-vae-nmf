@@ -20,7 +20,7 @@ dataset_size = 'complete'
 
 # System 
 cuda = torch.cuda.is_available()
-cuda_device = "cuda:3"
+cuda_device = "cuda:0"
 device = torch.device(cuda_device if cuda else "cpu")
 num_workers = 8
 pin_memory = True

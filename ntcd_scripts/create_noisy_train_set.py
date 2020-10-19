@@ -18,8 +18,8 @@ from python.utils import open_file
 ## Dataset
 dataset_types = ['train', 'validation']
 
-# dataset_size = 'subset'
-dataset_size = 'complete'
+dataset_size = 'subset'
+# dataset_size = 'complete'
 
 input_speech_dir = os.path.join('data', dataset_size, 'raw/')
 
@@ -102,54 +102,55 @@ def main():
 
     for dataset_type in dataset_types:
 
-        # Create file list
-        file_paths = speech_list(input_speech_dir=input_speech_dir,
-                                dataset_type=dataset_type)
-        
-        # Create SNR list
-        np.random.seed(0)
-        
-        if dataset_type == 'train':
-            noise_types = ['domestic', 'nature', 'office', 'transportation']
-        if dataset_type == 'validation':
-            noise_types = ['nature', 'office', 'public', 'transportation']
-        
-        noise_index = np.random.randint(len(noise_types), size=len(file_paths))
-        
-        snrs = [-15.0, -10.0, -5.0, 0.0, 5.0]
-        snrs_index = np.random.randint(len(snrs), size=len(file_paths))
-        
-        # Create noise audios
-        noise_paths = noise_list(input_noise_dir=input_noise_dir,
-                                dataset_type=dataset_type)
-        noise_audios = {}
-
-        # Load the noise files
-        for noise_type, samples in noise_paths.items():
-
-            if dataset_type == 'train':
-                output_noise_path = output_noise_dir + 'si_tr_s' + '/' + noise_type + '.wav'
-            if dataset_type == 'validation':
-                output_noise_path = output_noise_dir + 'si_dt_05' + '/' + noise_type + '.wav'
-
-            #if noise already preprocessed, read files directly
-            if os.path.exists(output_noise_path):
-                
-                noise_audio, fs_noise = sf.read(output_noise_path)
-                
-                if fs != fs_noise:
-                    raise ValueError('Unexpected sampling rate. Did you preprocess the 16kHz version of the DEMAND database?')
-
-                noise_audios[noise_type] = noise_audio
-
-        # Create mixture
-        noisy_spectrograms = []
-        noisy_labels = []
-        all_snr_dB = []
-
         # Do 2 iterations to save separately noisy_spectro and noisy_labels (RAM issues)
-        # for iteration in range(2):
         for iteration in range(2):
+        #for iteration in range(1):
+
+            # Create file list
+            file_paths = speech_list(input_speech_dir=input_speech_dir,
+                                    dataset_type=dataset_type)
+            
+            # Create SNR list
+            np.random.seed(0)
+            
+            if dataset_type == 'train':
+                noise_types = ['domestic', 'nature', 'office', 'transportation']
+            if dataset_type == 'validation':
+                noise_types = ['nature', 'office', 'public', 'transportation']
+            
+            noise_index = np.random.randint(len(noise_types), size=len(file_paths))
+            
+            # List of snrs for all the files
+            snrs = [-15.0, -10.0, -5.0, 0.0, 5.0]
+            snrs_index = np.random.randint(len(snrs), size=len(file_paths))
+            
+            # Create noise audios
+            noise_paths = noise_list(input_noise_dir=input_noise_dir,
+                                    dataset_type=dataset_type)
+            noise_audios = {}
+
+            # Load the noise files
+            for noise_type, samples in noise_paths.items():
+
+                if dataset_type == 'train':
+                    output_noise_path = output_noise_dir + 'si_tr_s' + '/' + noise_type + '.wav'
+                if dataset_type == 'validation':
+                    output_noise_path = output_noise_dir + 'si_dt_05' + '/' + noise_type + '.wav'
+
+                #if noise already preprocessed, read files directly
+                if os.path.exists(output_noise_path):
+                    
+                    noise_audio, fs_noise = sf.read(output_noise_path)
+                    
+                    if fs != fs_noise:
+                        raise ValueError('Unexpected sampling rate. Did you preprocess the 16kHz version of the DEMAND database?')
+
+                    noise_audios[noise_type] = noise_audio
+
+            # Create mixture
+            noisy_spectrograms = []
+            noisy_labels = []
+            all_snr_dB = []
 
             # Loop over the speech files
             for i, file_path in tqdm(enumerate(file_paths)):
@@ -225,17 +226,17 @@ def main():
                     #                          eps)
                     # noisy_labels.append(speech_wiener_mask)
 
-                    # binary mask
-                    speech_ibm = clean_speech_IBM(speech_tf,
-                                            quantile_fraction=quantile_fraction,
-                                            quantile_weight=quantile_weight)
-                    noisy_labels.append(speech_ibm)
-                    
-                    # # VAD
-                    # speech_vad = clean_speech_VAD(speech_tf,
+                    # # binary mask
+                    # speech_ibm = clean_speech_IBM(speech_tf,
                     #                         quantile_fraction=quantile_fraction,
                     #                         quantile_weight=quantile_weight)
-                    # noisy_labels.append(speech_vad)
+                    # noisy_labels.append(speech_ibm)
+                    
+                    # VAD
+                    speech_vad = clean_speech_VAD(speech_tf,
+                                            quantile_fraction=quantile_fraction,
+                                            quantile_weight=quantile_weight)
+                    noisy_labels.append(speech_vad)
 
                 if iteration == 1:
                     # TF reprepsentation
@@ -261,17 +262,17 @@ def main():
                 #             dataset_type=dataset_type,
                 #             suffix='noisy_wiener_labels')
 
-                # write spectrograms
-                write_dataset(noisy_labels,
-                            output_data_dir=output_pickle_dir,
-                            dataset_type=dataset_type,
-                            suffix='noisy_labels')
-
                 # # write spectrograms
                 # write_dataset(noisy_labels,
                 #             output_data_dir=output_pickle_dir,
                 #             dataset_type=dataset_type,
-                #             suffix='noisy_vad_labels')
+                #             suffix='noisy_labels')
+
+                # write spectrograms
+                write_dataset(noisy_labels,
+                            output_data_dir=output_pickle_dir,
+                            dataset_type=dataset_type,
+                            suffix='noisy_vad_labels')
 
                 del noisy_labels
 

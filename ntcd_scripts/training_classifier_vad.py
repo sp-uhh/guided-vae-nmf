@@ -16,12 +16,12 @@ from python.models.utils import binary_cross_entropy, f1_loss
 ##################################### SETTINGS #####################################################
 
 # Dataset
-dataset_size = 'subset'
-# dataset_size = 'complete'
+# dataset_size = 'subset'
+dataset_size = 'complete'
 
 # System 
 cuda = torch.cuda.is_available()
-cuda_device = "cuda:0"
+cuda_device = "cuda:1"
 device = torch.device(cuda_device if cuda else "cpu")
 num_workers = 8
 pin_memory = True
@@ -32,25 +32,23 @@ eps = 1e-8
 x_dim = 513 
 y_dim = 1
 h_dim = [128, 128]
-batch_norm=True
-std_norm_dataset = False
+batch_norm=False
+std_norm_dataset = True
 
 # Training
 batch_size = 128
 learning_rate = 1e-3
 log_interval = 250
 start_epoch = 1
-end_epoch = 100
+end_epoch = 500
 
-# model_name = 'classif_VAD_normdataset_batchnorm_before_hdim_{:03d}_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], end_epoch)
-model_name = 'classif_VAD_batchnorm_before_hdim_{:03d}_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], end_epoch)
-# model_name = 'classif_VAD_normdataset_hdim_{:03d}_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], end_epoch)
+model_name = 'ntcd_classif_VAD_normdataset_hdim_{:03d}_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], end_epoch)
 
 #####################################################################################################
 
 print('Load data')
-train_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_tr_s_noisy_frames.p'), 'rb'))
-valid_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_dt_05_noisy_frames.p'), 'rb'))
+train_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/ntcd_timit/train_noisy_frames.p'), 'rb'))
+valid_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/ntcd_timit/dev_noisy_frames.p'), 'rb'))
 
 if std_norm_dataset:
     # Normalize train_data, valid_data
@@ -63,8 +61,8 @@ if std_norm_dataset:
     train_data /= (std + eps)
     valid_data /= (std + eps)
 
-train_labels = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_tr_s_noisy_vad_labels.p'), 'rb'))
-valid_labels = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_dt_05_noisy_vad_labels.p'), 'rb'))
+train_labels = pickle.load(open(os.path.join('data', dataset_size, 'pickle/ntcd_timit/train_noisy_vad_labels.p'), 'rb'))
+valid_labels = pickle.load(open(os.path.join('data', dataset_size, 'pickle/ntcd_timit/dev_noisy_vad_labels.p'), 'rb'))
 
 train_dataset = SpectrogramLabeledFrames(train_data, train_labels)
 valid_dataset = SpectrogramLabeledFrames(valid_data, valid_labels)

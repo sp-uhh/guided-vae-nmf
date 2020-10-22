@@ -18,8 +18,8 @@ from python.utils import open_file
 ## Dataset
 dataset_types = ['train', 'validation']
 
-dataset_size = 'subset'
-# dataset_size = 'complete'
+# dataset_size = 'subset'
+dataset_size = 'complete'
 
 input_speech_dir = os.path.join('data', dataset_size, 'raw/')
 
@@ -108,8 +108,8 @@ def main():
     for dataset_type in dataset_types:
 
         # Do 2 iterations to save separately noisy_spectro and noisy_labels (RAM issues)
-        for iteration in range(2):
-        #for iteration in range(1):
+        # for iteration in range(2):
+        for iteration in range(1):
 
             # Create file list
             file_paths = speech_list(input_speech_dir=input_speech_dir,
@@ -126,6 +126,7 @@ def main():
             noise_index = np.random.randint(len(noise_types), size=len(file_paths))
             
             # List of snrs for all the files
+            #TODO: loop over SNRs?
             snrs = [-15.0, -10.0, -5.0, 0.0, 5.0]
             snrs_index = np.random.randint(len(snrs), size=len(file_paths))
             
@@ -211,25 +212,25 @@ def main():
                                     pad_at_end=pad_at_end,
                                     dtype=dtype) # shape = (freq_bins, frames)
 
-                    noisy_labels.append(abs(speech_tf))
+                    # noisy_labels.append(abs(speech_tf))
 
-                    # # TF reprepsentation
-                    # noise_tf = stft(noise,
-                    #                 fs=fs,
-                    #                 wlen_sec=wlen_sec,
-                    #                 win=win, 
-                    #                 hop_percent=hop_percent,
-                    #                 center=center,
-                    #                 pad_mode=pad_mode,
-                    #                 pad_at_end=pad_at_end,
-                    #                 dtype=dtype) # shape = (freq_bins, frames)
+                    # TF reprepsentation
+                    noise_tf = stft(noise,
+                                    fs=fs,
+                                    wlen_sec=wlen_sec,
+                                    win=win, 
+                                    hop_percent=hop_percent,
+                                    center=center,
+                                    pad_mode=pad_mode,
+                                    pad_at_end=pad_at_end,
+                                    dtype=dtype) # shape = (freq_bins, frames)
 
                     
-                    # # wiener mask
-                    # speech_wiener_mask = ideal_wiener_mask(speech_tf,
-                    #                          noise_tf,
-                    #                          eps)
-                    # noisy_labels.append(speech_wiener_mask)
+                    # wiener mask
+                    speech_wiener_mask = ideal_wiener_mask(speech_tf,
+                                             noise_tf,
+                                             eps)
+                    noisy_labels.append(speech_wiener_mask)
 
                     # # binary mask
                     # speech_ibm = noise_robust_clean_speech_IBM(speech_tf,
@@ -264,17 +265,17 @@ def main():
             if iteration == 0:
                 noisy_labels = np.concatenate(noisy_labels, axis=1)
 
-                # write spectrograms
-                write_dataset(noisy_labels,
-                            output_data_dir=output_pickle_dir,
-                            dataset_type=dataset_type,
-                            suffix='noisy_abs_frames_labels')
-
                 # # write spectrograms
                 # write_dataset(noisy_labels,
                 #             output_data_dir=output_pickle_dir,
                 #             dataset_type=dataset_type,
-                #             suffix='noisy_wiener_labels')
+                #             suffix='noisy_abs_frames_labels')
+
+                # write spectrograms
+                write_dataset(noisy_labels,
+                            output_data_dir=output_pickle_dir,
+                            dataset_type=dataset_type,
+                            suffix='noisy_wiener_labels')
 
                 # # write spectrograms
                 # write_dataset(noisy_labels,

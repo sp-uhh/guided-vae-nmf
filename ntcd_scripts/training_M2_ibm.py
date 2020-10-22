@@ -20,7 +20,7 @@ dataset_size = 'complete'
 
 # System 
 cuda = torch.cuda.is_available()
-cuda_device = "cuda:0"
+cuda_device = "cuda:1"
 device = torch.device(cuda_device if cuda else "cpu")
 num_workers = 8
 pin_memory = True
@@ -30,7 +30,7 @@ eps = 1e-8
 # Deep Generative Model
 x_dim = 513 
 y_dim = 513
-z_dim = 16
+z_dim = 32
 h_dim = [128, 128]
 
 # Classifier

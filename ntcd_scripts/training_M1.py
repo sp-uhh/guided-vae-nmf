@@ -19,7 +19,7 @@ dataset_size = 'complete'
 
 # System 
 cuda = torch.cuda.is_available()
-device = torch.device("cuda:0" if cuda else "cpu")
+device = torch.device("cuda:3" if cuda else "cpu")
 num_workers = 8
 pin_memory = True
 non_blocking = True
@@ -27,7 +27,7 @@ eps = 1e-8
 
 # Deep Generative Model
 x_dim = 513 
-z_dim = 16
+z_dim = 32
 h_dim = [128, 128]
 
 # Training

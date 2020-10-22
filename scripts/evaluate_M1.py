@@ -77,7 +77,8 @@ dtype = 'complex64'
 # h_dim = [128]
 # eps = 1e-8
 
-model_name = 'M1_hdim_128_128_zdim_032_end_epoch_200/M1_epoch_085_vloss_479.69'
+# model_name = 'M1_hdim_128_128_zdim_032_end_epoch_200/M1_epoch_085_vloss_479.69'
+model_name = 'M1_hdim_128_128_zdim_032_end_epoch_200/M1_epoch_124_vloss_475.95'
 x_dim = 513 # frequency bins (spectrogram)
 z_dim = 32
 h_dim = [128, 128]
@@ -110,8 +111,8 @@ processed_data_dir = os.path.join('data',dataset_size,'processed/')
 
 
 def main():
-
-    device = torch.device("cuda" if cuda else "cpu")
+    cuda_device = "cuda:1"
+    device = torch.device(cuda_device if cuda else "cpu")
     file = open('output.log','w') 
 
     print('Torch version: {}'.format(torch.__version__))
@@ -119,8 +120,8 @@ def main():
     if torch.cuda.device_count() >= 1: print("Number GPUs: ", torch.cuda.device_count())
 
     model = VariationalAutoencoder([x_dim, z_dim, h_dim])
-    model.load_state_dict(torch.load(os.path.join('models', model_name + '.pt'), map_location="cuda:0"))
-    if cuda: model = model.cuda()
+    model.load_state_dict(torch.load(os.path.join('models', model_name + '.pt'), map_location=cuda_device))
+    if cuda: model = model.to(device)
 
     model.eval()
     for param in model.parameters():

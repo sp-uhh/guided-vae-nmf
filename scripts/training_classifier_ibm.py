@@ -16,12 +16,12 @@ from python.models.utils import binary_cross_entropy, f1_loss
 ##################################### SETTINGS #####################################################
 
 # Dataset
-# dataset_size = 'subset'
-dataset_size = 'complete'
+dataset_size = 'subset'
+# dataset_size = 'complete'
 
 # System 
 cuda = torch.cuda.is_available()
-cuda_device = "cuda:2"
+cuda_device = "cuda:0"
 device = torch.device(cuda_device if cuda else "cpu")
 num_workers = 8
 pin_memory = True
@@ -41,13 +41,15 @@ log_interval = 250
 start_epoch = 1
 end_epoch = 100
 
-model_name = 'classif_normdataset_batchnorm_before_hdim_{:03d}_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], end_epoch)
+model_name = 'wsj0_snr-15_5_classif_normdataset_batchnorm_before_hdim_{:03d}_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], end_epoch)
 
 #####################################################################################################
 
 print('Load data')
 train_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_tr_s_noisy_frames.p'), 'rb'))
 valid_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_dt_05_noisy_frames.p'), 'rb'))
+# train_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_tr_s_noisy_frames_snr-15_5.p'), 'rb'))
+# valid_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_dt_05_noisy_frames_snr-15_5.p'), 'rb'))
 
 # Normalize train_data, valid_data
 mean = np.mean(train_data, axis=1)[:, None]
@@ -61,6 +63,8 @@ valid_data /= (std + eps)
 
 train_labels = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_tr_s_noisy_labels.p'), 'rb'))
 valid_labels = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_dt_05_noisy_labels.p'), 'rb'))
+# train_labels = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_tr_s_noisy_labels_snr-15_5.p'), 'rb'))
+# valid_labels = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_dt_05_noisy_labels_snr-15_5.p'), 'rb'))
 
 train_dataset = SpectrogramLabeledFrames(train_data, train_labels)
 valid_dataset = SpectrogramLabeledFrames(valid_data, valid_labels)

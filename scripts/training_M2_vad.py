@@ -16,8 +16,8 @@ from python.models.utils import elbo
 ##################################### SETTINGS #####################################################
 
 # Dataset
-# dataset_size = 'subset'
-dataset_size = 'complete'
+dataset_size = 'subset'
+# dataset_size = 'complete'
 
 # System 
 cuda = torch.cuda.is_available()
@@ -45,7 +45,7 @@ log_interval = 250
 start_epoch = 1
 end_epoch = 200
 
-model_name = 'M2_VAD_quantile_0.9999_hdim_{:03d}_{:03d}_zdim_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], z_dim, end_epoch)
+model_name = 'dummy_M2_VAD_quantile_0.9999_hdim_{:03d}_{:03d}_zdim_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], z_dim, end_epoch)
 # model_name = 'M2_VAD_hdim_{:03d}_zdim_{:03d}_end_epoch_{:03d}'.format(h_dim[0], z_dim, end_epoch)
 #model_name = 'M2_VAD_normdataset_hdim_{:03d}_zdim_{:03d}_end_epoch_{:03d}'.format(h_dim[0], z_dim, end_epoch)
 

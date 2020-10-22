@@ -61,6 +61,32 @@ class Classifier(nn.Module):
         y = torch.sigmoid(self.output_layer(x))
         return y
 
+class Classifier2Classes(nn.Module):
+    def __init__(self, dims, batch_norm=False):
+        super(Classifier2Classes, self).__init__()
+        [x_dim, h_dim, y_dim] = dims
+        neurons = [x_dim, *h_dim]
+        linear_layers = []
+        for i in range(1, len(neurons)):
+            # if batch_norm:
+            #     linear_layers.append(nn.BatchNorm1d(neurons[i-1]))
+            linear_layers.append(nn.Linear(neurons[i-1], neurons[i]))
+            if batch_norm:
+                linear_layers.append(nn.BatchNorm1d(neurons[i]))
+
+        self.hidden = nn.ModuleList(linear_layers)
+        self.output_layer = nn.Linear(h_dim[-1], 2 * y_dim)
+        self.softmax = nn.Softmax(dim=1)
+        self.y_dim = y_dim
+
+    def forward(self, x):
+        #TODO: maybe modify activation functions?
+        for layer in self.hidden:
+            x = torch.relu(layer(x))
+        y = self.softmax(self.output_layer(x).view(-1, 2, self.y_dim))
+        #y = torch.sigmoid(self.output_layer(x).view(-1, 2, self.y_dim))
+        return y
+
 
 class Encoder(nn.Module):
     def __init__(self, dims, sample_layer=GaussianSample):

@@ -47,18 +47,24 @@ win = 'hann' # type of window
 dtype = 'complex64'
 
 ## Ideal binary mask
-quantile_fraction = 0.98
+# quantile_fraction = 0.98
+# quantile_weight = 0.999
+quantile_fraction = 0.999
 quantile_weight = 0.999
 
 ## Hyperparameters
 # M2
-model_name = 'M2_VAD_hdim_128_128_zdim_032_end_epoch_100/M2_epoch_085_vloss_465.98'
+# model_name = 'M2_VAD_hdim_128_128_zdim_032_end_epoch_100/M2_epoch_085_vloss_465.98'
+# model_name = 'M2_VAD_quantile_0.999_hdim_128_128_zdim_032_end_epoch_200/M2_epoch_085_vloss_487.80'
+# model_name = 'M2_VAD_quantile_0.999_hdim_128_128_zdim_032_end_epoch_200/M2_epoch_087_vloss_482.93'
+model_name = 'M2_VAD_quantile_0.999_hdim_128_128_zdim_032_end_epoch_200/M2_epoch_087_vloss_482.93'
 
 # classifier
 # classif_name = 'classif_VAD_normdataset_hdim_128_128_end_epoch_100/Classifier_epoch_096_vloss_0.21'
+classif_name = 'classif_VAD_qf0.999_normdataset_hdim_128_128_end_epoch_100/Classifier_epoch_090_vloss_0.23'
 # classif_name = 'oracle_classif'
 # classif_name = 'ones_classif'
-classif_name = 'zeros_classif'
+# classif_name = 'zeros_classif'
 # classif_name = 'timo_vad_classif'
 
 # Directory where estimated data is stored

@@ -26,7 +26,7 @@ dataset_size = 'complete'
 
 # System 
 cuda = torch.cuda.is_available()
-cuda_device = "cuda:0"
+cuda_device = "cuda:2"
 device = torch.device(cuda_device if cuda else "cpu")
 
 # STFT parameters
@@ -37,7 +37,8 @@ win = 'hann' # type of window
 
 # Hyperparameters 
 ## Wiener
-model_name = 'wiener_maskloss_normdataset_hdim_128_128_128_128_128_end_epoch_200/Classifier_epoch_096_vloss_46.936924'
+#model_name = 'wiener_maskloss_normdataset_hdim_128_128_128_128_128_end_epoch_200/Classifier_epoch_096_vloss_46.936924'
+model_name = 'wiener_msaloss_normdataset_input_amplitude_hdim_128_128_128_128_128_end_epoch_200/Classifier_epoch_096_vloss_117.944573'
 x_dim = 513 
 y_dim = 513
 h_dim = [128, 128, 128, 128, 128]
@@ -78,7 +79,7 @@ def main():
     print('Load models')
     model = Classifier([x_dim, h_dim, y_dim])
     model.load_state_dict(torch.load(model_dir, map_location=cuda_device))
-    if cuda: model = model.cuda()
+    if cuda: model = model.to(device)
 
     print('- Number of learnable parameters: {}'.format(count_parameters(model)))
 

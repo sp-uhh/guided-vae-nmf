@@ -37,7 +37,8 @@ win = 'hann' # type of window
 
 # Hyperparameters 
 # M2
-model_name = 'M2_VAD_hdim_128_128_zdim_032_end_epoch_100/M2_epoch_085_vloss_465.98'
+# model_name = 'M2_VAD_hdim_128_128_zdim_032_end_epoch_100/M2_epoch_085_vloss_465.98'
+model_name = 'M2_VAD_quantile_0.999_hdim_128_128_zdim_032_end_epoch_200/M2_epoch_087_vloss_482.93'
 x_dim = 513 
 y_dim = 1
 z_dim = 32
@@ -47,7 +48,8 @@ eps = 1e-8
 model_dir = os.path.join('models', model_name + '.pt')
 
 ## Classifier
-classif_name = 'classif_VAD_normdataset_hdim_128_128_end_epoch_100/Classifier_epoch_096_vloss_0.21'
+# classif_name = 'classif_VAD_normdataset_hdim_128_128_end_epoch_100/Classifier_epoch_096_vloss_0.21'
+classif_name = 'classif_VAD_qf0.999_normdataset_hdim_128_128_end_epoch_100/Classifier_epoch_090_vloss_0.23'
 h_dim_cl = [128, 128]
 std_norm = True
 

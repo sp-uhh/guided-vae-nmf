@@ -17,8 +17,8 @@ from python.utils import open_file
 ## Dataset
 dataset_types = ['train', 'validation']
 
-# dataset_size = 'subset'
-dataset_size = 'complete'
+dataset_size = 'subset'
+# dataset_size = 'complete'
 
 input_speech_dir = os.path.join('data', dataset_size, 'raw/')
 
@@ -36,7 +36,8 @@ win = 'hann' # type of window
 dtype = 'complex64'
 
 ## Ideal binary mask
-quantile_fraction = 0.98
+quantile_fraction = 0.999
+#quantile_fraction = 0.9
 quantile_weight = 0.999
 
 # Ideal wiener mask
@@ -96,10 +97,11 @@ def process_noise():
 def main():
 
     for dataset_type in dataset_types:
+    #for dataset_type in ['validation']:
 
         # Do 2 iterations to save separately noisy_spectro and noisy_labels (RAM issues)
-        # for iteration in range(2):
-        for iteration in range(1):
+        for iteration in range(2):
+        #for iteration in range(1):
 
             # Create file list
             file_paths = speech_list(input_speech_dir=input_speech_dir,
@@ -116,6 +118,7 @@ def main():
             noise_index = np.random.randint(len(noise_types), size=len(file_paths))
             
             snrs = [-5, -2.5, 0, 2.5, 5.0]
+            #snrs = [-15.0, -10.0, -5.0, 0.0, 5.0]
             snrs_index = np.random.randint(len(snrs), size=len(file_paths))
             
             # Create noise audios
@@ -202,7 +205,9 @@ def main():
                     speech_tf = stft(speech, fs=fs, wlen_sec=wlen_sec, win=win, 
                         hop_percent=hop_percent, dtype=dtype)
                     
-                    noisy_labels.append(abs(speech_tf))
+                    noisy_labels.append(speech_tf)
+                    
+                    # noisy_labels.append(abs(speech_tf))
 
                     
                     # # TF reprepsentation
@@ -227,22 +232,23 @@ def main():
                     #                         quantile_weight=quantile_weight)
                     # noisy_labels.append(speech_vad)
 
-                # if iteration == 1:
-                #     # TF reprepsentation
-                #     mixture_tf = stft(mixture, fs=fs, wlen_sec=wlen_sec, win=win, 
-                #         hop_percent=hop_percent, dtype=dtype)
+                if iteration == 1:
+                    # TF reprepsentation
+                    mixture_tf = stft(mixture, fs=fs, wlen_sec=wlen_sec, win=win, 
+                        hop_percent=hop_percent, dtype=dtype)
                     
-                                
-                #     noisy_spectrograms.append(np.power(abs(mixture_tf), 2))
+                    noisy_spectrograms.append(mixture_tf)
+
+                    # noisy_spectrograms.append(np.power(abs(mixture_tf), 2))
 
             if iteration == 0:
                 noisy_labels = np.concatenate(noisy_labels, axis=1)
                 
-                # write spectrograms
-                write_dataset(noisy_labels,
-                            output_data_dir=output_pickle_dir,
-                            dataset_type=dataset_type,
-                            suffix='noisy_abs_frames_labels')
+                # # write spectrograms
+                # write_dataset(noisy_labels,
+                #             output_data_dir=output_pickle_dir,
+                #             dataset_type=dataset_type,
+                #             suffix='noisy_abs_frames_labels')
 
                 # # write spectrograms
                 # write_dataset(noisy_labels,
@@ -250,30 +256,42 @@ def main():
                 #             dataset_type=dataset_type,
                 #             suffix='noisy_wiener_labels')
 
-                # # write spectrograms
-                # write_dataset(noisy_labels,
-                #             output_data_dir=output_pickle_dir,
-                #             dataset_type=dataset_type,
-                #             suffix='noisy_labels')
+                # write spectrograms
+                write_dataset(noisy_labels,
+                            output_data_dir=output_pickle_dir,
+                            dataset_type=dataset_type,
+                            suffix='noisy_wiener_labels_complex')
 
                 # # write spectrograms
                 # write_dataset(noisy_labels,
                 #             output_data_dir=output_pickle_dir,
                 #             dataset_type=dataset_type,
-                #             suffix='noisy_vad_labels')
+                #             suffix='noisy_labels_snr-15_5')
+
+                # # write spectrograms
+                # write_dataset(noisy_labels,
+                #             output_data_dir=output_pickle_dir,
+                #             dataset_type=dataset_type,
+                #             suffix='noisy_vad_labels_qf0.999')
 
                 del noisy_labels
 
-            # if iteration == 1:
-            #     noisy_spectrograms = np.concatenate(noisy_spectrograms, axis=1)
+            if iteration == 1:
+                noisy_spectrograms = np.concatenate(noisy_spectrograms, axis=1)
 
-            #     # write spectrograms
-            #     write_dataset(noisy_spectrograms,
-            #                 output_data_dir=output_pickle_dir,
-            #                 dataset_type=dataset_type,
-            #                 suffix='noisy_frames')
-                
-            #     del noisy_spectrograms
+                # # write spectrograms
+                # write_dataset(noisy_spectrograms,
+                #             output_data_dir=output_pickle_dir,
+                #             dataset_type=dataset_type,
+                #             suffix='noisy_frames_snr-15_5')
+
+                # write spectrograms
+                write_dataset(noisy_spectrograms,
+                            output_data_dir=output_pickle_dir,
+                            dataset_type=dataset_type,
+                            suffix='noisy_frames_complex')
+
+                del noisy_spectrograms
 
 
         # TODO: save SNR, level_s, level_n in 1 big csv

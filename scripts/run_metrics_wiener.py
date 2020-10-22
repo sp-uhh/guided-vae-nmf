@@ -53,7 +53,9 @@ quantile_weight = 0.999
 
 ## Hyperparameters
 # Wiener
-model_name = 'wiener_maskloss_normdataset_hdim_128_128_128_128_128_end_epoch_200/Classifier_epoch_096_vloss_46.936924'
+# model_name = 'wiener_maskloss_normdataset_hdim_128_128_128_128_128_end_epoch_200/Classifier_epoch_096_vloss_46.936924'
+model_name = 'wiener_maskloss_normdataset_hdim_128_128_128_128_128_end_epoch_200/Classifier_epoch_052_vloss_47.230169'
+# model_name = 'wiener_signalloss_normdataset_hdim_128_128_128_128_128_end_epoch_200/Classifier_epoch_022_vloss_82.984183'
 
 model_data_dir = 'data/' + dataset_size + '/models/' + model_name + '/'
 

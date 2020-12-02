@@ -42,8 +42,8 @@ def main():
 
     output_h5_dir = output_data_dir + data_dir + '.h5'
 
-    #We are using 40Mb of chunk_cache_mem here ("rdcc_nbytes" and "rdcc_nslots")
-    with h5.File(output_h5_dir, 'a', rdcc_nbytes=1024**2*40, rdcc_nslots=10e5) as f:
+    #We are using 400Mb of chunk_cache_mem here ("rdcc_nbytes" and "rdcc_nslots")
+    with h5.File(output_h5_dir, 'w', rdcc_nbytes=1024**2*400, rdcc_nslots=10e6) as f:
         
         for dataset_type in dataset_types:
 
@@ -57,6 +57,9 @@ def main():
             f.attrs['hop_percent'] = hop_percent
             f.attrs['win'] = win
             f.attrs['dtype'] = dtype
+
+            f.attrs['quantile_fraction'] = quantile_fraction
+            f.attrs['quantile_weight'] = quantile_weight
 
             # Create file list
             file_paths = speech_list(input_speech_dir=input_speech_dir,

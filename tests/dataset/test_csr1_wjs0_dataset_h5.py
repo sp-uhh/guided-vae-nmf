@@ -21,7 +21,8 @@ def test_write_read_frames(dataset_type):
     output_speech_dir = 'data/subset/processed/'
     output_data_dir = 'data/subset/h5/'
     data_dir = 'CSR-1-WSJ-0'
-    output_h5_dir = output_data_dir + data_dir + '.h5'
+    suffix = 'lzf'
+    output_h5_dir = output_data_dir + data_dir + '_' + suffix + '.h5'
 
     # Create file list
     file_paths = speech_list(input_speech_dir=input_speech_dir,

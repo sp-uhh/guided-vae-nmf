@@ -59,26 +59,26 @@ class SpectrogramLabeledFrames(Dataset):
 
 
 class SpectrogramLabeledFramesH5(Dataset):
-    #TODO: don't forget to close the file
     #TODO: read the attributes of the h5py (key, value)
-    #TODO: specify chunk size 
     #TODO: compression
-    def __init__(self, output_h5_dir, dataset_type):
+    def __init__(self, output_h5_dir, dataset_type, rdcc_nbytes, rdcc_nslots):
 
         # Do not load hdf5 at init
         self.output_h5_dir = output_h5_dir
         self.dataset_type = dataset_type
+        self.rdcc_nbytes = rdcc_nbytes
+        self.rdcc_nslots = rdcc_nslots
         self.data = None
         #We are using 40Mb of chunk_cache_mem here ("rdcc_nbytes" and "rdcc_nslots")
-        with h5.File(self.output_h5_dir, 'r', rdcc_nbytes=1024**2*40, rdcc_nslots=10e5) as file:
+        with h5.File(self.output_h5_dir, 'r', rdcc_nbytes=rdcc_nbytes, rdcc_nslots=rdcc_nslots) as file:
             self.dataset_len = len(file["X_" + dataset_type][0,:])
 
     def __getitem__(self, i):
         if self.data is None:
-            self.f = h5.File(self.output_h5_dir, 'r', rdcc_nbytes=1024**2*40, rdcc_nslots=10e5)
+            self.f = h5.File(self.output_h5_dir, 'r', rdcc_nbytes=self.rdcc_nbytes, rdcc_nslots=self.rdcc_nslots)
             self.data = self.f['X_' + self.dataset_type]
             self.labels = self.f['Y_' + self.dataset_type]
-        return self.data[:,i].astype('float32'), self.labels[:,i].astype('float32')
+        return self.data[:,i], self.labels[:,i]
 
     def __len__(self):
         return self.dataset_len

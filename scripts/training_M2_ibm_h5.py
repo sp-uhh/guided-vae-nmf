@@ -17,14 +17,23 @@ from python.models.utils import elbo
 # Dataset
 dataset_size = 'subset'
 # dataset_size = 'complete'
+dataset_name = 'CSR-1-WSJ-0'
+suffix = 'lzf'
 
 # System 
 cuda = torch.cuda.is_available()
 cuda_device = "cuda:0"
 device = torch.device(cuda_device if cuda else "cpu")
-num_workers = 8
+num_workers = 0
 pin_memory = True
 non_blocking = True
+rdcc_nbytes = 1024**2*400 # The number of bytes to use for the chunk cache
+                          # Default is 1 Mb
+                          # Here we are using 400Mb of chunk_cache_mem here
+rdcc_nslots = 1e4 # The number of slots in the cache's hash table
+                  # Default is 521
+                  # ideally 100 x number of chunks that can be fit in rdcc_nbytes
+                  # (see https://docs.h5py.org/en/stable/high/file.html?highlight=rdcc#chunk-cache)
 eps = 1e-8
 
 # Deep Generative Model
@@ -50,10 +59,10 @@ model_name = 'dummy_M2_hdim_{:03d}_{:03d}_zdim_{:03d}_end_epoch_{:03d}'.format(h
 #####################################################################################################
 
 print('Load data')
-output_h5_dir = os.path.join('data', dataset_size, 'h5/CSR-1-WSJ-0.h5')
+output_h5_dir = os.path.join('data', dataset_size, 'h5', dataset_name + '_' + suffix + '.h5')
 
-train_dataset = SpectrogramLabeledFramesH5(output_h5_dir=output_h5_dir, dataset_type='train')
-valid_dataset = SpectrogramLabeledFramesH5(output_h5_dir=output_h5_dir, dataset_type='validation')
+train_dataset = SpectrogramLabeledFramesH5(output_h5_dir=output_h5_dir, dataset_type='train', rdcc_nbytes=rdcc_nbytes, rdcc_nslots=rdcc_nslots)
+valid_dataset = SpectrogramLabeledFramesH5(output_h5_dir=output_h5_dir, dataset_type='validation', rdcc_nbytes=rdcc_nbytes, rdcc_nslots=rdcc_nslots)
 
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, sampler=None, 
                         batch_sampler=None, num_workers=num_workers, pin_memory=pin_memory, 
@@ -91,7 +100,7 @@ def main():
     for epoch in range(start_epoch, end_epoch):
         model.train()
         total_elbo, total_likelihood, total_kl = (0, 0, 0)
-        for batch_idx, (x, y) in enumerate(train_loader):
+        for batch_idx, (x, y) in tqdm(enumerate(train_loader)):
             if cuda:
                 x, y = x.to(device, non_blocking=non_blocking), y.to(device, non_blocking=non_blocking)
 

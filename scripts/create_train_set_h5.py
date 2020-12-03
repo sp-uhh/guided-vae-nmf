@@ -16,13 +16,16 @@ from python.utils import open_file
 # Parameters
 ## Dataset
 dataset_types = ['train', 'validation']
+# dataset_types = ['train']
+# dataset_types = ['validation']
 
-dataset_size = 'subset'
-# dataset_size = 'complete'
+# dataset_size = 'subset'
+dataset_size = 'complete'
 
 input_speech_dir = os.path.join('data', dataset_size, 'raw/')
 output_data_dir = os.path.join('data', dataset_size, 'h5/')
 data_dir = 'CSR-1-WSJ-0'
+suffix = 'lzf'
 
 ## STFT
 fs = int(16e3) # Sampling rate
@@ -35,23 +38,37 @@ dtype = 'complex64'
 quantile_fraction = 0.98
 quantile_weight = 0.999
 
+# HDF5 parameters
+rdcc_nbytes = 1024**2*400 # The number of bytes to use for the chunk cache
+                          # Default is 1 Mb
+                          # Here we are using 400Mb of chunk_cache_mem here
+rdcc_nslots = 1e4 # The number of slots in the cache's hash table
+                  # Default is 521
+                  # ideally 100 x number of chunks that can be fit in rdcc_nbytes
+                  # (see https://docs.h5py.org/en/stable/high/file.html?highlight=rdcc#chunk-cache)
+compression = 'lzf'
+
 def main():
 
     if not os.path.exists(output_data_dir):
         os.makedirs(output_data_dir)
 
-    output_h5_dir = output_data_dir + data_dir + '.h5'
+    output_h5_dir = output_data_dir + data_dir + '_' + suffix + '.h5'
 
-    #We are using 400Mb of chunk_cache_mem here ("rdcc_nbytes" and "rdcc_nslots")
-    with h5.File(output_h5_dir, 'w', rdcc_nbytes=1024**2*400, rdcc_nslots=10e6) as f:
-        
-        for dataset_type in dataset_types:
+    for dataset_type in dataset_types:
+    
+        with h5.File(output_h5_dir, 'a', rdcc_nbytes=rdcc_nbytes, rdcc_nslots=rdcc_nslots) as f:    
 
+            # Delete datasets if already exists
+            if 'X_' + dataset_type in f:
+                del f['X_' + dataset_type]
+                del f['Y_' + dataset_type]
+            
             # Exact shape of dataset is unknown in advance unfortunately
             # Faster writing if you know the shape in advance
             # Size of chunks corresponds to one spectrogram frame
-            f.create_dataset('X_' + dataset_type, shape=(513, 0), dtype=np.float32, maxshape=(513, None), chunks=(513, 1), compression="lzf")
-            f.create_dataset('Y_' + dataset_type, shape=(513, 0), dtype=np.float32, maxshape=(513, None), chunks=(513, 1), compression="lzf")
+            f.create_dataset('X_' + dataset_type, shape=(513, 0), dtype=np.float32, maxshape=(513, None), chunks=(513, 1), compression=compression)
+            f.create_dataset('Y_' + dataset_type, shape=(513, 0), dtype=np.float32, maxshape=(513, None), chunks=(513, 1), compression=compression)
             f.attrs['fs'] = fs
             f.attrs['wlen_sec'] = wlen_sec
             f.attrs['hop_percent'] = hop_percent

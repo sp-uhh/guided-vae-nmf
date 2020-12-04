@@ -5,6 +5,7 @@ import numpy as np
 import soundfile as sf
 import os
 from tqdm import tqdm
+import tables #needed for blosc compression
 import h5py as h5
 
 from python.dataset.csr1_wjs0_dataset import speech_list, write_dataset
@@ -25,7 +26,14 @@ dataset_size = 'complete'
 input_speech_dir = os.path.join('data', dataset_size, 'raw/')
 output_data_dir = os.path.join('data', dataset_size, 'h5/')
 data_dir = 'CSR-1-WSJ-0'
-suffix = 'lzf'
+# suffix = 'lzf'
+# suffix = 'lzf_conda'
+suffix = 'lzf_conda_bis'
+# suffix = 'lzf_pip'
+# suffix = 'lzf_shuffle_ter'
+# suffix = 'blosc_nslots1e5'
+# suffix = 'blosc_importafter'
+# suffix = 'blosc_conda'
 
 ## STFT
 fs = int(16e3) # Sampling rate
@@ -42,11 +50,19 @@ quantile_weight = 0.999
 rdcc_nbytes = 1024**2*400 # The number of bytes to use for the chunk cache
                           # Default is 1 Mb
                           # Here we are using 400Mb of chunk_cache_mem here
-rdcc_nslots = 1e4 # The number of slots in the cache's hash table
+rdcc_nslots = 1e5 # The number of slots in the cache's hash table
                   # Default is 521
                   # ideally 100 x number of chunks that can be fit in rdcc_nbytes
                   # (see https://docs.h5py.org/en/stable/high/file.html?highlight=rdcc#chunk-cache)
+                  # for compression 'zlf' --> 1e4 - 1e7
+                  # for compression 32001 --> 1e4
+chunks = (513, 1)
+# chunks = None
 compression = 'lzf'
+# compression = 32001
+# compression = None
+# shuffle = True
+shuffle = None
 
 def main():
 
@@ -60,6 +76,7 @@ def main():
         with h5.File(output_h5_dir, 'a', rdcc_nbytes=rdcc_nbytes, rdcc_nslots=rdcc_nslots) as f:    
 
             # Delete datasets if already exists
+            #TODO: change way of suppressing dataset
             if 'X_' + dataset_type in f:
                 del f['X_' + dataset_type]
                 del f['Y_' + dataset_type]
@@ -67,8 +84,8 @@ def main():
             # Exact shape of dataset is unknown in advance unfortunately
             # Faster writing if you know the shape in advance
             # Size of chunks corresponds to one spectrogram frame
-            f.create_dataset('X_' + dataset_type, shape=(513, 0), dtype=np.float32, maxshape=(513, None), chunks=(513, 1), compression=compression)
-            f.create_dataset('Y_' + dataset_type, shape=(513, 0), dtype=np.float32, maxshape=(513, None), chunks=(513, 1), compression=compression)
+            f.create_dataset('X_' + dataset_type, shape=(513, 0), dtype=np.float32, maxshape=(513, None), chunks=chunks, compression=compression, shuffle=shuffle)
+            f.create_dataset('Y_' + dataset_type, shape=(513, 0), dtype=np.float32, maxshape=(513, None), chunks=chunks, compression=compression, shuffle=shuffle)
             f.attrs['fs'] = fs
             f.attrs['wlen_sec'] = wlen_sec
             f.attrs['hop_percent'] = hop_percent

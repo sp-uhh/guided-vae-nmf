@@ -3,6 +3,7 @@ import torch
 from torch.utils.data import Dataset
 from librosa import stft
 from glob import glob
+import tables #needed for blosc compression
 import h5py as h5
 
 # STFT parameters
@@ -69,9 +70,9 @@ class SpectrogramLabeledFramesH5(Dataset):
         self.rdcc_nbytes = rdcc_nbytes
         self.rdcc_nslots = rdcc_nslots
         self.data = None
-        #We are using 40Mb of chunk_cache_mem here ("rdcc_nbytes" and "rdcc_nslots")
+        #We are using 400Mb of chunk_cache_mem here ("rdcc_nbytes" and "rdcc_nslots")
         with h5.File(self.output_h5_dir, 'r', rdcc_nbytes=rdcc_nbytes, rdcc_nslots=rdcc_nslots) as file:
-            self.dataset_len = len(file["X_" + dataset_type][0,:])
+            self.dataset_len = file["X_" + dataset_type].shape[1]
 
     def __getitem__(self, i):
         if self.data is None:

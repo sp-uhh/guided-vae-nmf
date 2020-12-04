@@ -15,16 +15,27 @@ from python.models.utils import elbo
 ##################################### SETTINGS #####################################################
 
 # Dataset
-dataset_size = 'subset'
-# dataset_size = 'complete'
+# dataset_size = 'subset'
+dataset_size = 'complete'
 dataset_name = 'CSR-1-WSJ-0'
-suffix = 'lzf'
+# suffix = 'lzf_shuffle'
+# suffix = 'lzf_shuffle_bis'
+# suffix = 'lzf_shuffle_ter'
+# suffix = 'lzf'
+# suffix = 'lzf_pip'
+# suffix = 'lzf_conda'
+# suffix = 'lzf_conda_bis'
+# suffix = 'blosc'
+# suffix = 'blosc_shuffle'
+# suffix = 'blosc_nslots1e5'
+# suffix = 'blosc_importafter'
+suffix = 'blosc_conda'
 
-# System 
+# System
 cuda = torch.cuda.is_available()
 cuda_device = "cuda:0"
 device = torch.device(cuda_device if cuda else "cpu")
-num_workers = 0
+num_workers = 16
 pin_memory = True
 non_blocking = True
 rdcc_nbytes = 1024**2*400 # The number of bytes to use for the chunk cache

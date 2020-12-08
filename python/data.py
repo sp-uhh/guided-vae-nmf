@@ -3,7 +3,7 @@ import torch
 from torch.utils.data import Dataset
 from librosa import stft
 from glob import glob
-import tables #needed for blosc compression
+# import tables #needed for blosc compression
 import h5py as h5
 
 # STFT parameters
@@ -61,34 +61,39 @@ class SpectrogramLabeledFrames(Dataset):
 
 class SpectrogramLabeledFramesH5(Dataset):
     #TODO: read the attributes of the h5py (key, value)
-    #TODO: compression
     def __init__(self, output_h5_dir, dataset_type, rdcc_nbytes, rdcc_nslots):
-
-        # Do not load hdf5 at init
+        # Do not load hdf5 in __init__ if num_workers > 0
         self.output_h5_dir = output_h5_dir
         self.dataset_type = dataset_type
         self.rdcc_nbytes = rdcc_nbytes
         self.rdcc_nslots = rdcc_nslots
-        self.data = None
-        #We are using 400Mb of chunk_cache_mem here ("rdcc_nbytes" and "rdcc_nslots")
-        with h5.File(self.output_h5_dir, 'r', rdcc_nbytes=rdcc_nbytes, rdcc_nslots=rdcc_nslots) as file:
+        with h5.File(self.output_h5_dir, 'r') as file:
             self.dataset_len = file["X_" + dataset_type].shape[1]
 
+    def open_hdf5(self):
+        #We are using 400Mb of chunk_cache_mem here ("rdcc_nbytes" and "rdcc_nslots")
+        self.f = h5.File(self.output_h5_dir, 'r', rdcc_nbytes=self.rdcc_nbytes, rdcc_nslots=self.rdcc_nslots)
+        
+        # Faster to open datasets here than in __getitem__
+        self.data = self.f['X_' + self.dataset_type]
+        self.labels = self.f['Y_' + self.dataset_type]
+
     def __getitem__(self, i):
-        if self.data is None:
-            self.f = h5.File(self.output_h5_dir, 'r', rdcc_nbytes=self.rdcc_nbytes, rdcc_nslots=self.rdcc_nslots)
-            self.data = self.f['X_' + self.dataset_type]
-            self.labels = self.f['Y_' + self.dataset_type]
+        # Open hdf5 here if num_workers > 0
+        if not hasattr(self, 'f'):
+            self.open_hdf5()
         return self.data[:,i], self.labels[:,i]
 
     def __len__(self):
         return self.dataset_len
 
-    def __del__(self):
-        self.f.close()
+    def __del__(self): 
+        if hasattr(self, 'f'):
+            self.f.close()
 
 
 #TODO: include STFT analysis in dataloader, in order to avoid preprocess in advance
+# (ask Julius or JM)
 class SpectrogramFramesRawAudio(Dataset):
     #TODO: don't forget to close the file
     #TODO: read the attributes of the h5py (key, value)

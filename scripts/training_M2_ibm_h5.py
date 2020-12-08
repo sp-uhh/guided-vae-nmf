@@ -16,20 +16,12 @@ from python.models.utils import elbo
 
 # Dataset
 # dataset_size = 'subset'
-dataset_size = 'complete'
+# dataset_size = 'complete'
+dataset_size = 'export'
 dataset_name = 'CSR-1-WSJ-0'
-# suffix = 'lzf_shuffle'
-# suffix = 'lzf_shuffle_bis'
-# suffix = 'lzf_shuffle_ter'
-# suffix = 'lzf'
-# suffix = 'lzf_pip'
-# suffix = 'lzf_conda'
-# suffix = 'lzf_conda_bis'
-# suffix = 'blosc'
-# suffix = 'blosc_shuffle'
-# suffix = 'blosc_nslots1e5'
-# suffix = 'blosc_importafter'
-suffix = 'blosc_conda'
+data_dir = 'h5'
+# data_dir = 'h5_old'
+suffix = 'lzf_pip_transpose'
 
 # System
 cuda = torch.cuda.is_available()
@@ -39,8 +31,8 @@ num_workers = 16
 pin_memory = True
 non_blocking = True
 rdcc_nbytes = 1024**2*400 # The number of bytes to use for the chunk cache
-                          # Default is 1 Mb
-                          # Here we are using 400Mb of chunk_cache_mem here
+                           # Default is 1 Mb
+                           # Here we are using 400Mb of chunk_cache_mem here
 rdcc_nslots = 1e4 # The number of slots in the cache's hash table
                   # Default is 521
                   # ideally 100 x number of chunks that can be fit in rdcc_nbytes
@@ -70,7 +62,7 @@ model_name = 'dummy_M2_hdim_{:03d}_{:03d}_zdim_{:03d}_end_epoch_{:03d}'.format(h
 #####################################################################################################
 
 print('Load data')
-output_h5_dir = os.path.join('data', dataset_size, 'h5', dataset_name + '_' + suffix + '.h5')
+output_h5_dir = os.path.join('data', dataset_size, data_dir, dataset_name + '_' + suffix + '.h5')
 
 train_dataset = SpectrogramLabeledFramesH5(output_h5_dir=output_h5_dir, dataset_type='train', rdcc_nbytes=rdcc_nbytes, rdcc_nslots=rdcc_nslots)
 valid_dataset = SpectrogramLabeledFramesH5(output_h5_dir=output_h5_dir, dataset_type='validation', rdcc_nbytes=rdcc_nbytes, rdcc_nslots=rdcc_nslots)

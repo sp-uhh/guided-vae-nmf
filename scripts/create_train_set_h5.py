@@ -5,7 +5,7 @@ import numpy as np
 import soundfile as sf
 import os
 from tqdm import tqdm
-import tables #needed for blosc compression
+# import tables #needed for blosc compression
 import h5py as h5
 
 from python.dataset.csr1_wjs0_dataset import speech_list, write_dataset
@@ -22,18 +22,32 @@ dataset_types = ['train', 'validation']
 
 # dataset_size = 'subset'
 dataset_size = 'complete'
+# dataset_size = 'export'
+
+# data_dir = 'h5'
+data_dir = 'h5_old'
 
 input_speech_dir = os.path.join('data', dataset_size, 'raw/')
-output_data_dir = os.path.join('data', dataset_size, 'h5/')
-data_dir = 'CSR-1-WSJ-0'
+output_data_dir = os.path.join('data', dataset_size, data_dir + '/')
+dataset_name = 'CSR-1-WSJ-0'
 # suffix = 'lzf'
+# suffix = 'lzf_transpose'
+# suffix = 'lzf_transpose_pip'
 # suffix = 'lzf_conda'
-suffix = 'lzf_conda_bis'
+# suffix = 'lzf_conda_bis'
+# suffix = 'lzf_conda_quater'
+# suffix = 'lzf_conda_quater_chunks100'
 # suffix = 'lzf_pip'
+suffix = 'lzf_pip_transpose'
 # suffix = 'lzf_shuffle_ter'
 # suffix = 'blosc_nslots1e5'
 # suffix = 'blosc_importafter'
 # suffix = 'blosc_conda'
+# suffix = 'blosc_conda_shuffle'
+# suffix = 'blosc_conda_ssd'
+# suffix = 'blosc_conda_transpose'
+# suffix = 'blosc_conda_transpose_ter'
+# suffix = 'nocompr'
 
 ## STFT
 fs = int(16e3) # Sampling rate
@@ -49,32 +63,40 @@ quantile_weight = 0.999
 # HDF5 parameters
 rdcc_nbytes = 1024**2*400 # The number of bytes to use for the chunk cache
                           # Default is 1 Mb
-                          # Here we are using 400Mb of chunk_cache_mem here
+                          # Here we are using 4Gb of chunk_cache_mem here
 rdcc_nslots = 1e5 # The number of slots in the cache's hash table
                   # Default is 521
                   # ideally 100 x number of chunks that can be fit in rdcc_nbytes
                   # (see https://docs.h5py.org/en/stable/high/file.html?highlight=rdcc#chunk-cache)
                   # for compression 'zlf' --> 1e4 - 1e7
                   # for compression 32001 --> 1e4
+# shape = (0, 513)
+# maxshape = (None, 513)
+# chunks = (1, 513)
+
+shape = (513, 0)
+maxshape = (513, None)
 chunks = (513, 1)
+
+# chunks = (100, 513)
 # chunks = None
 compression = 'lzf'
 # compression = 32001
 # compression = None
 # shuffle = True
-shuffle = None
+shuffle = False
 
 def main():
 
     if not os.path.exists(output_data_dir):
         os.makedirs(output_data_dir)
 
-    output_h5_dir = output_data_dir + data_dir + '_' + suffix + '.h5'
+    output_h5_dir = output_data_dir + dataset_name + '_' + suffix + '.h5'
 
-    for dataset_type in dataset_types:
+    with h5.File(output_h5_dir, 'a', rdcc_nbytes=rdcc_nbytes, rdcc_nslots=rdcc_nslots) as f:    
+
+        for dataset_type in dataset_types:
     
-        with h5.File(output_h5_dir, 'a', rdcc_nbytes=rdcc_nbytes, rdcc_nslots=rdcc_nslots) as f:    
-
             # Delete datasets if already exists
             #TODO: change way of suppressing dataset
             if 'X_' + dataset_type in f:
@@ -84,8 +106,8 @@ def main():
             # Exact shape of dataset is unknown in advance unfortunately
             # Faster writing if you know the shape in advance
             # Size of chunks corresponds to one spectrogram frame
-            f.create_dataset('X_' + dataset_type, shape=(513, 0), dtype=np.float32, maxshape=(513, None), chunks=chunks, compression=compression, shuffle=shuffle)
-            f.create_dataset('Y_' + dataset_type, shape=(513, 0), dtype=np.float32, maxshape=(513, None), chunks=chunks, compression=compression, shuffle=shuffle)
+            f.create_dataset('X_' + dataset_type, shape=shape, dtype='float32', maxshape=maxshape, chunks=chunks, compression=compression, shuffle=shuffle)
+            f.create_dataset('Y_' + dataset_type, shape=shape, dtype='float32', maxshape=maxshape, chunks=chunks, compression=compression, shuffle=shuffle)
             f.attrs['fs'] = fs
             f.attrs['wlen_sec'] = wlen_sec
             f.attrs['hop_percent'] = hop_percent
@@ -98,6 +120,10 @@ def main():
             # Create file list
             file_paths = speech_list(input_speech_dir=input_speech_dir,
                                     dataset_type=dataset_type)
+
+            # Store dataset in variables for faster I/O
+            fx = f['X_' + dataset_type]
+            fy = f['Y_' + dataset_type]
 
             for i, file_path in tqdm(enumerate(file_paths)):
 
@@ -128,14 +154,14 @@ def main():
                 
                 spectrogram = np.power(abs(speech_tf), 2)
 
-                f['X_' + dataset_type].resize((f['X_' + dataset_type].shape[1] + spectrogram.shape[1]), axis = 1)
-                f['X_' + dataset_type][:,-spectrogram.shape[1]:] = spectrogram
+                fx.resize((fx.shape[1] + spectrogram.shape[1]), axis = 1)
+                fx[:,-spectrogram.shape[1]:] = spectrogram
 
                 label = speech_ibm
-                # labels.append(speech_vad)
 
-                f['Y_' + dataset_type].resize((f['Y_' + dataset_type].shape[1] + label.shape[1]), axis = 1)
-                f['Y_' + dataset_type][:,-label.shape[1]:] = label
+                fy.resize((fy.shape[1] + label.shape[1]), axis = 1)
+                fy[:,-label.shape[1]:] = label
+         
 
 if __name__ == '__main__':
     main()

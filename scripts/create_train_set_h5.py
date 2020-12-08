@@ -17,37 +17,17 @@ from python.utils import open_file
 # Parameters
 ## Dataset
 dataset_types = ['train', 'validation']
-# dataset_types = ['train']
-# dataset_types = ['validation']
 
 # dataset_size = 'subset'
 dataset_size = 'complete'
 # dataset_size = 'export'
 
-# data_dir = 'h5'
-data_dir = 'h5_old'
+data_dir = 'h5'
 
 input_speech_dir = os.path.join('data', dataset_size, 'raw/')
 output_data_dir = os.path.join('data', dataset_size, data_dir + '/')
 dataset_name = 'CSR-1-WSJ-0'
-# suffix = 'lzf'
-# suffix = 'lzf_transpose'
-# suffix = 'lzf_transpose_pip'
-# suffix = 'lzf_conda'
-# suffix = 'lzf_conda_bis'
-# suffix = 'lzf_conda_quater'
-# suffix = 'lzf_conda_quater_chunks100'
-# suffix = 'lzf_pip'
 suffix = 'lzf_pip_transpose'
-# suffix = 'lzf_shuffle_ter'
-# suffix = 'blosc_nslots1e5'
-# suffix = 'blosc_importafter'
-# suffix = 'blosc_conda'
-# suffix = 'blosc_conda_shuffle'
-# suffix = 'blosc_conda_ssd'
-# suffix = 'blosc_conda_transpose'
-# suffix = 'blosc_conda_transpose_ter'
-# suffix = 'nocompr'
 
 ## STFT
 fs = int(16e3) # Sampling rate
@@ -70,20 +50,11 @@ rdcc_nslots = 1e5 # The number of slots in the cache's hash table
                   # (see https://docs.h5py.org/en/stable/high/file.html?highlight=rdcc#chunk-cache)
                   # for compression 'zlf' --> 1e4 - 1e7
                   # for compression 32001 --> 1e4
-# shape = (0, 513)
-# maxshape = (None, 513)
-# chunks = (1, 513)
-
 shape = (513, 0)
 maxshape = (513, None)
 chunks = (513, 1)
 
-# chunks = (100, 513)
-# chunks = None
 compression = 'lzf'
-# compression = 32001
-# compression = None
-# shuffle = True
 shuffle = False
 
 def main():
@@ -161,6 +132,8 @@ def main():
 
                 fy.resize((fy.shape[1] + label.shape[1]), axis = 1)
                 fy[:,-label.shape[1]:] = label
+    
+    #TODO: move new dataset to /export (SSD)
          
 
 if __name__ == '__main__':

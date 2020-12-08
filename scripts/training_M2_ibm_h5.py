@@ -8,7 +8,7 @@ sys.path.append('.')
 
 from torch.utils.data import DataLoader
 from python.utils import count_parameters
-from python.data import SpectrogramLabeledFrames, SpectrogramLabeledFramesH5
+from python.data import SpectrogramLabeledFrames, SpectrogramLabeledFramesH5, hdf5_data_iterator
 from python.models.models import DeepGenerativeModel
 from python.models.utils import elbo
 
@@ -64,19 +64,23 @@ model_name = 'dummy_M2_hdim_{:03d}_{:03d}_zdim_{:03d}_end_epoch_{:03d}'.format(h
 print('Load data')
 output_h5_dir = os.path.join('data', dataset_size, data_dir, dataset_name + '_' + suffix + '.h5')
 
-train_dataset = SpectrogramLabeledFramesH5(output_h5_dir=output_h5_dir, dataset_type='train', rdcc_nbytes=rdcc_nbytes, rdcc_nslots=rdcc_nslots)
-valid_dataset = SpectrogramLabeledFramesH5(output_h5_dir=output_h5_dir, dataset_type='validation', rdcc_nbytes=rdcc_nbytes, rdcc_nslots=rdcc_nslots)
+# train_dataset = SpectrogramLabeledFramesH5(output_h5_dir=output_h5_dir, dataset_type='train', rdcc_nbytes=rdcc_nbytes, rdcc_nslots=rdcc_nslots)
+# valid_dataset = SpectrogramLabeledFramesH5(output_h5_dir=output_h5_dir, dataset_type='validation', rdcc_nbytes=rdcc_nbytes, rdcc_nslots=rdcc_nslots)
 
-train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, sampler=None, 
-                        batch_sampler=None, num_workers=num_workers, pin_memory=pin_memory, 
-                        drop_last=False, timeout=0, worker_init_fn=None)
+# train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, sampler=None, 
+#                         batch_sampler=None, num_workers=num_workers, pin_memory=pin_memory, 
+#                         drop_last=False, timeout=0, worker_init_fn=None)
 
-valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, sampler=None, 
-                        batch_sampler=None, num_workers=num_workers, pin_memory=pin_memory, 
-                        drop_last=False, timeout=0, worker_init_fn=None)
+# valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, sampler=None, 
+#                         batch_sampler=None, num_workers=num_workers, pin_memory=pin_memory, 
+#                         drop_last=False, timeout=0, worker_init_fn=None)
 
-print('- Number of training samples: {}'.format(len(train_dataset)))
-print('- Number of validation samples: {}'.format(len(valid_dataset)))
+train_loader = hdf5_data_iterator(output_h5_dir=output_h5_dir, dataset_type='train', rdcc_nbytes=rdcc_nbytes, rdcc_nslots=rdcc_nslots, batch_size=batch_size, shuffle=True)
+
+valid_loader = hdf5_data_iterator(output_h5_dir=output_h5_dir, dataset_type='validation', rdcc_nbytes=rdcc_nbytes, rdcc_nslots=rdcc_nslots, batch_size=batch_size, shuffle=False)
+
+# print('- Number of training samples: {}'.format(len(train_dataset)))
+# print('- Number of validation samples: {}'.format(len(valid_dataset)))
 
 def main():
     print('Create model')
@@ -95,8 +99,8 @@ def main():
     # Optimizer settings
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.999))
 
-    t = len(train_loader)
-    m = len(valid_loader)
+    # t = len(train_loader)
+    # m = len(valid_loader)
     print('- Number of learnable parameters: {}'.format(count_parameters(model)))
 
     print('Start training')
@@ -117,11 +121,19 @@ def main():
             total_likelihood += recon_loss.item()
             total_kl += KL.item()
 
+            # # Save to log
+            # if batch_idx % log_interval == 0:
+            #     print(('Train Epoch: {:2d}   [{:7d}/{:7d} ({:2d}%)]    '\
+            #         'ELBO: {:.3f}    Recon.: {:.3f}    KL: {:.3f}    '\
+            #         + '').format(epoch, batch_idx*len(x), len(train_loader.dataset), int(100.*batch_idx/len(train_loader)),\
+            #                 loss.item(), recon_loss.item(), KL.item()), 
+            #         file=open(model_dir + '/' + 'output_batch.log','a'))
+
             # Save to log
             if batch_idx % log_interval == 0:
                 print(('Train Epoch: {:2d}   [{:7d}/{:7d} ({:2d}%)]    '\
                     'ELBO: {:.3f}    Recon.: {:.3f}    KL: {:.3f}    '\
-                    + '').format(epoch, batch_idx*len(x), len(train_loader.dataset), int(100.*batch_idx/len(train_loader)),\
+                    + '').format(epoch, batch_idx*len(x), 100000, int(100.*batch_idx/1000),\
                             loss.item(), recon_loss.item(), KL.item()), 
                     file=open(model_dir + '/' + 'output_batch.log','a'))
 

@@ -74,7 +74,7 @@ class SpectrogramLabeledFramesH5(Dataset):
         #We are using 400Mb of chunk_cache_mem here ("rdcc_nbytes" and "rdcc_nslots")
         self.f = h5.File(self.output_h5_dir, 'r', rdcc_nbytes=self.rdcc_nbytes, rdcc_nslots=self.rdcc_nslots)
         
-        # Faster to open datasets here than in __getitem__
+        # Faster to open datasets once, rather than at every call of __getitem__
         self.data = self.f['X_' + self.dataset_type]
         self.labels = self.f['Y_' + self.dataset_type]
 
@@ -91,6 +91,50 @@ class SpectrogramLabeledFramesH5(Dataset):
         if hasattr(self, 'f'):
             self.f.close()
 
+def hdf5_loader_generator(output_h5_dir, dataset_type, rdcc_nbytes, rdcc_nslots, batch_size, shuffle):
+    """Given an h5 path to a file that holds the arrays, returns a generator
+    that can get certain data at a time."""
+    f = h5.File(output_h5_dir, 'r', rdcc_nbytes=rdcc_nbytes, rdcc_nslots=rdcc_nslots)
+    n_samples = f["X_" + dataset_type].shape[1]
+
+    # Faster to open datasets once, rather than at every call of __getitem__
+    data = f['X_' + dataset_type]
+    labels = f['Y_' + dataset_type]
+    
+    batch_index = 0
+    total_batches_seen = 0
+    
+    while 1:
+        if batch_index == 0:
+            # For MLP
+            index_array = np.arange(n_samples)
+
+            if shuffle:
+                np.random.shuffle(index_array)
+
+        current_index = (batch_index * batch_size) % n_samples
+        if n_samples > current_index + batch_size:
+            current_batch_size = batch_size
+            batch_index += 1
+        # If last batch of epoch, reduce batch_size
+        else:
+            current_batch_size = n_samples - current_index
+            batch_index = 0
+        total_batches_seen += 1
+
+        # sort indices before putting in HDF5 dataset
+        # yield (index_array[current_index: current_index + current_batch_size],
+        #        current_index, current_batch_size)
+        index_values =  index_array[current_index: current_index + current_batch_size]
+        index_values = sorted(index_values)
+
+        X = data[:,index_values]
+        Y = labels[:,index_values]
+            
+        yield (torch.from_numpy(X).T, torch.from_numpy(Y).T)
+
+def hdf5_data_iterator(output_h5_dir, dataset_type, rdcc_nbytes, rdcc_nslots, batch_size, shuffle):
+    return iter(hdf5_loader_generator(output_h5_dir, dataset_type, rdcc_nbytes, rdcc_nslots, batch_size, shuffle))
 
 #TODO: include STFT analysis in dataloader, in order to avoid preprocess in advance
 # (ask Julius or JM)

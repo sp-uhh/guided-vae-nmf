@@ -13,7 +13,6 @@ from python.processing.stft import stft
 from python.processing.target import clean_speech_IBM, clean_speech_VAD
 from python.utils import open_file
 
-
 # Parameters
 ## Dataset
 dataset_types = ['train', 'validation']

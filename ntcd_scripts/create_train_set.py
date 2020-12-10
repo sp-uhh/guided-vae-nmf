@@ -9,7 +9,7 @@ import math
 
 from python.dataset.ntcd_timit_dataset import speech_list, write_dataset
 from python.processing.stft import stft
-from python.processing.target import clean_speech_IBM, clean_speech_VAD
+from python.processing.target import noise_robust_clean_speech_IBM, noise_robust_clean_speech_VAD
 from python.utils import open_file
 
 
@@ -34,8 +34,13 @@ pad_mode = 'reflect' # This argument is ignored if center = False
 pad_at_end = True # pad audio file at end to match same size after stft + istft
 dtype = 'complex64'
 
-## Ideal binary mask
-quantile_fraction = 0.999
+## Noise robust VAD
+vad_quantile_fraction_begin = 0.93
+vad_quantile_fraction_end = 0.99
+quantile_weight = 0.999
+
+## Noise robust IBM
+ibm_quantile_fraction = 0.999
 quantile_weight = 0.999
 
 def main():
@@ -73,49 +78,52 @@ def main():
                                  pad_at_end=pad_at_end,
                                  dtype=dtype) # shape = (freq_bins, frames)
 
-                # # binary mask
-                # speech_ibm = clean_speech_IBM(speech_tf,
-                #                         quantile_fraction=quantile_fraction,
-                #                         quantile_weight=quantile_weight)
+                # binary mask
+                speech_ibm = noise_robust_clean_speech_IBM(speech_tf,
+                                                    vad_quantile_fraction_begin=vad_quantile_fraction_begin,
+                                                    vad_quantile_fraction_end=vad_quantile_fraction_end,
+                                                    ibm_quantile_fraction=ibm_quantile_fraction,
+                                                    quantile_weight=quantile_weight)
                                     
-                # vad
-                speech_vad = clean_speech_VAD(speech_tf,
-                                        quantile_fraction=quantile_fraction,
-                                        quantile_weight=quantile_weight)
+                # # vad
+                # speech_vad = noise_robust_clean_speech_VAD(speech_tf,
+                #                                     quantile_fraction_begin=vad_quantile_fraction_begin,
+                #                                     quantile_fraction_end=vad_quantile_fraction_end,
+                #                                     quantile_weight=quantile_weight)
                 
                 if iteration == 0:
-                    # labels.append(speech_ibm)
-                    labels.append(speech_vad)
+                    labels.append(speech_ibm)
+                    # labels.append(speech_vad)
 
-                # if iteration == 1:
-                #     spectrograms.append(np.power(abs(speech_tf), 2))
+                if iteration == 1:
+                    spectrograms.append(np.power(abs(speech_tf), 2))
 
             if iteration == 0:
                 labels = np.concatenate(labels, axis=1)
                 
-                # # write spectrograms
-                # write_dataset(labels,
-                #             output_data_dir=output_pickle_dir,
-                #             dataset_type=dataset_type,
-                #             suffix='labels')
-
                 # write spectrograms
                 write_dataset(labels,
                             output_data_dir=output_pickle_dir,
                             dataset_type=dataset_type,
-                            suffix='vad_labels')
+                            suffix='labels')
+
+                # # write spectrograms
+                # write_dataset(labels,
+                #             output_data_dir=output_pickle_dir,
+                #             dataset_type=dataset_type,
+                #             suffix='vad_labels')
 
                 del labels            
 
-            # if iteration == 1:          
-            #     spectrograms = np.concatenate(spectrograms, axis=1)
-            #     # write spectrograms
-            #     write_dataset(spectrograms,
-            #                 output_data_dir=output_pickle_dir,
-            #                 dataset_type=dataset_type,
-            #                 suffix='frames')
+            if iteration == 1:          
+                spectrograms = np.concatenate(spectrograms, axis=1)
+                # write spectrograms
+                write_dataset(spectrograms,
+                            output_data_dir=output_pickle_dir,
+                            dataset_type=dataset_type,
+                            suffix='frames')
 
-            #     del spectrograms
+                del spectrograms
 
 
 

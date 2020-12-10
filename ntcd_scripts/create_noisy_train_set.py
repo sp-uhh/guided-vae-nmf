@@ -10,7 +10,7 @@ import math
 from python.dataset.ntcd_timit_dataset import speech_list, write_dataset
 from python.dataset.demand_database import noise_list, preprocess_noise, noise_segment
 from python.processing.stft import stft
-from python.processing.target import clean_speech_IBM, clean_speech_VAD, ideal_wiener_mask
+from python.processing.target import noise_robust_clean_speech_IBM, noise_robust_clean_speech_VAD, ideal_wiener_mask
 from python.utils import open_file
 
 
@@ -18,8 +18,8 @@ from python.utils import open_file
 ## Dataset
 dataset_types = ['train', 'validation']
 
-dataset_size = 'subset'
-# dataset_size = 'complete'
+# dataset_size = 'subset'
+dataset_size = 'complete'
 
 input_speech_dir = os.path.join('data', dataset_size, 'raw/')
 
@@ -40,8 +40,13 @@ pad_mode = 'reflect' # This argument is ignored if center = False
 pad_at_end = True # pad audio file at end to match same size after stft + istft
 dtype = 'complex64'
 
-## Ideal binary mask
-quantile_fraction = 0.999
+## Noise robust VAD
+vad_quantile_fraction_begin = 0.93
+vad_quantile_fraction_end = 0.99
+quantile_weight = 0.999
+
+## Noise robust IBM
+ibm_quantile_fraction = 0.999
 quantile_weight = 0.999
 
 # Ideal wiener mask
@@ -102,54 +107,56 @@ def main():
 
     for dataset_type in dataset_types:
 
-        # Create file list
-        file_paths = speech_list(input_speech_dir=input_speech_dir,
-                                dataset_type=dataset_type)
-        
-        # Create SNR list
-        np.random.seed(0)
-        
-        if dataset_type == 'train':
-            noise_types = ['domestic', 'nature', 'office', 'transportation']
-        if dataset_type == 'validation':
-            noise_types = ['nature', 'office', 'public', 'transportation']
-        
-        noise_index = np.random.randint(len(noise_types), size=len(file_paths))
-        
-        snrs = [-15.0, -10.0, -5.0, 0.0, 5.0]
-        snrs_index = np.random.randint(len(snrs), size=len(file_paths))
-        
-        # Create noise audios
-        noise_paths = noise_list(input_noise_dir=input_noise_dir,
-                                dataset_type=dataset_type)
-        noise_audios = {}
-
-        # Load the noise files
-        for noise_type, samples in noise_paths.items():
-
-            if dataset_type == 'train':
-                output_noise_path = output_noise_dir + 'si_tr_s' + '/' + noise_type + '.wav'
-            if dataset_type == 'validation':
-                output_noise_path = output_noise_dir + 'si_dt_05' + '/' + noise_type + '.wav'
-
-            #if noise already preprocessed, read files directly
-            if os.path.exists(output_noise_path):
-                
-                noise_audio, fs_noise = sf.read(output_noise_path)
-                
-                if fs != fs_noise:
-                    raise ValueError('Unexpected sampling rate. Did you preprocess the 16kHz version of the DEMAND database?')
-
-                noise_audios[noise_type] = noise_audio
-
-        # Create mixture
-        noisy_spectrograms = []
-        noisy_labels = []
-        all_snr_dB = []
-
         # Do 2 iterations to save separately noisy_spectro and noisy_labels (RAM issues)
         # for iteration in range(2):
-        for iteration in range(2):
+        for iteration in range(1):
+
+            # Create file list
+            file_paths = speech_list(input_speech_dir=input_speech_dir,
+                                    dataset_type=dataset_type)
+            
+            # Create SNR list
+            np.random.seed(0)
+            
+            if dataset_type == 'train':
+                noise_types = ['domestic', 'nature', 'office', 'transportation']
+            if dataset_type == 'validation':
+                noise_types = ['nature', 'office', 'public', 'transportation']
+            
+            noise_index = np.random.randint(len(noise_types), size=len(file_paths))
+            
+            # List of snrs for all the files
+            #TODO: loop over SNRs?
+            snrs = [-15.0, -10.0, -5.0, 0.0, 5.0]
+            snrs_index = np.random.randint(len(snrs), size=len(file_paths))
+            
+            # Create noise audios
+            noise_paths = noise_list(input_noise_dir=input_noise_dir,
+                                    dataset_type=dataset_type)
+            noise_audios = {}
+
+            # Load the noise files
+            for noise_type, samples in noise_paths.items():
+
+                if dataset_type == 'train':
+                    output_noise_path = output_noise_dir + 'si_tr_s' + '/' + noise_type + '.wav'
+                if dataset_type == 'validation':
+                    output_noise_path = output_noise_dir + 'si_dt_05' + '/' + noise_type + '.wav'
+
+                #if noise already preprocessed, read files directly
+                if os.path.exists(output_noise_path):
+                    
+                    noise_audio, fs_noise = sf.read(output_noise_path)
+                    
+                    if fs != fs_noise:
+                        raise ValueError('Unexpected sampling rate. Did you preprocess the 16kHz version of the DEMAND database?')
+
+                    noise_audios[noise_type] = noise_audio
+
+            # Create mixture
+            noisy_spectrograms = []
+            noisy_labels = []
+            all_snr_dB = []
 
             # Loop over the speech files
             for i, file_path in tqdm(enumerate(file_paths)):
@@ -207,34 +214,37 @@ def main():
 
                     # noisy_labels.append(abs(speech_tf))
 
-                    # # TF reprepsentation
-                    # noise_tf = stft(noise,
-                    #                 fs=fs,
-                    #                 wlen_sec=wlen_sec,
-                    #                 win=win, 
-                    #                 hop_percent=hop_percent,
-                    #                 center=center,
-                    #                 pad_mode=pad_mode,
-                    #                 pad_at_end=pad_at_end,
-                    #                 dtype=dtype) # shape = (freq_bins, frames)
+                    # TF reprepsentation
+                    noise_tf = stft(noise,
+                                    fs=fs,
+                                    wlen_sec=wlen_sec,
+                                    win=win, 
+                                    hop_percent=hop_percent,
+                                    center=center,
+                                    pad_mode=pad_mode,
+                                    pad_at_end=pad_at_end,
+                                    dtype=dtype) # shape = (freq_bins, frames)
 
                     
-                    # # wiener mask
-                    # speech_wiener_mask = ideal_wiener_mask(speech_tf,
-                    #                          noise_tf,
-                    #                          eps)
-                    # noisy_labels.append(speech_wiener_mask)
+                    # wiener mask
+                    speech_wiener_mask = ideal_wiener_mask(speech_tf,
+                                             noise_tf,
+                                             eps)
+                    noisy_labels.append(speech_wiener_mask)
 
-                    # binary mask
-                    speech_ibm = clean_speech_IBM(speech_tf,
-                                            quantile_fraction=quantile_fraction,
-                                            quantile_weight=quantile_weight)
-                    noisy_labels.append(speech_ibm)
+                    # # binary mask
+                    # speech_ibm = noise_robust_clean_speech_IBM(speech_tf,
+                    #                                     vad_quantile_fraction_begin=vad_quantile_fraction_begin,
+                    #                                     vad_quantile_fraction_end=vad_quantile_fraction_end,
+                    #                                     ibm_quantile_fraction=ibm_quantile_fraction,
+                    #                                     quantile_weight=quantile_weight)
+                    # noisy_labels.append(speech_ibm)
                     
                     # # VAD
-                    # speech_vad = clean_speech_VAD(speech_tf,
-                    #                         quantile_fraction=quantile_fraction,
-                    #                         quantile_weight=quantile_weight)
+                    # speech_vad = noise_robust_clean_speech_VAD(speech_tf,
+                    #                                     quantile_fraction_begin=vad_quantile_fraction_begin,
+                    #                                     quantile_fraction_end=vad_quantile_fraction_end,
+                    #                                     quantile_weight=quantile_weight)
                     # noisy_labels.append(speech_vad)
 
                 if iteration == 1:
@@ -259,13 +269,19 @@ def main():
                 # write_dataset(noisy_labels,
                 #             output_data_dir=output_pickle_dir,
                 #             dataset_type=dataset_type,
-                #             suffix='noisy_wiener_labels')
+                #             suffix='noisy_abs_frames_labels')
 
                 # write spectrograms
                 write_dataset(noisy_labels,
                             output_data_dir=output_pickle_dir,
                             dataset_type=dataset_type,
-                            suffix='noisy_labels')
+                            suffix='noisy_wiener_labels')
+
+                # # write spectrograms
+                # write_dataset(noisy_labels,
+                #             output_data_dir=output_pickle_dir,
+                #             dataset_type=dataset_type,
+                #             suffix='noisy_labels')
 
                 # # write spectrograms
                 # write_dataset(noisy_labels,

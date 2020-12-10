@@ -21,8 +21,12 @@ dataset_types = ['train', 'validation']
 # dataset_size = 'subset'
 dataset_size = 'complete'
 
+<<<<<<< HEAD
 # data_dir = 'h5'
 data_dir = 'export'
+=======
+data_dir = 'h5'
+>>>>>>> b72ab81680924b3783842197549dcdcd19dfe58a
 
 input_speech_dir = os.path.join('data', dataset_size, 'raw/')
 output_data_dir = os.path.join('data', dataset_size, data_dir + '/')

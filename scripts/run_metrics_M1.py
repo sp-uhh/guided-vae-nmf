@@ -54,7 +54,8 @@ quantile_weight = 0.999
 # M2
 #model_name = 'dummy_M2_10_epoch_010_vloss_108.79'
 # model_name = 'dummy_M2_alpha_5.0_epoch_100_vloss_466.72'
-model_name = 'M1_hdim_128_128_zdim_032_end_epoch_200/M1_epoch_085_vloss_479.69'
+# model_name = 'M1_hdim_128_128_zdim_032_end_epoch_200/M1_epoch_085_vloss_479.69'
+model_name = 'M1_hdim_128_128_zdim_032_end_epoch_200/M1_epoch_124_vloss_475.95'
 
 model_data_dir = 'data/' + dataset_size + '/models/' + model_name + '/'
 

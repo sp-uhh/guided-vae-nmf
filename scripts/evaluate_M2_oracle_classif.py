@@ -26,7 +26,7 @@ dataset_size = 'complete'
 
 # System 
 cuda = torch.cuda.is_available()
-cuda_device = "cuda:0"
+cuda_device = "cuda:1"
 device = torch.device(cuda_device if cuda else "cpu")
 
 # STFT parameters
@@ -37,7 +37,8 @@ win = 'hann' # type of window
 
 # Hyperparameters 
 # M2
-model_name = 'M2_hdim_128_128_zdim_032_end_epoch_100/M2_epoch_085_vloss_417.69'
+# model_name = 'M2_hdim_128_128_zdim_032_end_epoch_100/M2_epoch_085_vloss_417.69'
+model_name = 'M2_hdim_128_128_zdim_032_end_epoch_100/M2_epoch_098_vloss_414.57'
 x_dim = 513 
 y_dim = 513
 z_dim = 32
@@ -80,7 +81,7 @@ def main():
 
     model = DeepGenerativeModel([x_dim, y_dim, z_dim, h_dim], classifier)
     model.load_state_dict(torch.load(os.path.join('models', model_name + '.pt'), map_location=cuda_device))
-    if cuda: model = model.cuda()
+    if cuda: model = model.to(device)
 
     print('- Number of learnable parameters: {}'.format(count_parameters(model)))
 

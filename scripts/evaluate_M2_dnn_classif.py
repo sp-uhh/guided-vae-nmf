@@ -26,7 +26,7 @@ dataset_size = 'complete'
 
 # System 
 cuda = torch.cuda.is_available()
-cuda_device = "cuda:0"
+cuda_device = "cuda:2"
 device = torch.device(cuda_device if cuda else "cpu")
 
 # STFT parameters
@@ -37,7 +37,8 @@ win = 'hann' # type of window
 
 # Hyperparameters 
 # M2
-model_name = 'M2_hdim_128_128_zdim_032_end_epoch_100/M2_epoch_085_vloss_417.69'
+# model_name = 'M2_hdim_128_128_zdim_032_end_epoch_100/M2_epoch_085_vloss_417.69'
+model_name = 'M2_hdim_128_128_zdim_032_end_epoch_100/M2_epoch_098_vloss_414.57'
 x_dim = 513 
 y_dim = 513
 z_dim = 32
@@ -47,7 +48,8 @@ eps = 1e-8
 model_dir = os.path.join('models', model_name + '.pt')
 
 ## Classifier
-classif_name = 'classif_normdataset_hdim_128_128_end_epoch_100/Classifier_epoch_096_vloss_57.53'
+# classif_name = 'classif_normdataset_hdim_128_128_end_epoch_100/Classifier_epoch_096_vloss_57.53'
+classif_name = 'classif_normdataset_hdim_128_128_end_epoch_100/Classifier_epoch_073_vloss_56.43'
 h_dim_cl = [128, 128]
 std_norm = True
 
@@ -90,11 +92,11 @@ def main():
     print('Load models')
     classifier = Classifier([x_dim, h_dim_cl, y_dim])
     classifier.load_state_dict(torch.load(classif_dir, map_location=cuda_device))
-    if cuda: classifier = classifier.cuda()
+    if cuda: classifier = classifier.to(device)
 
     model = DeepGenerativeModel([x_dim, y_dim, z_dim, h_dim], None)
     model.load_state_dict(torch.load(model_dir, map_location=cuda_device))
-    if cuda: model = model.cuda()
+    if cuda: model = model.to(device)
 
     print('- Number of learnable parameters: {}'.format(count_parameters(model)))
 

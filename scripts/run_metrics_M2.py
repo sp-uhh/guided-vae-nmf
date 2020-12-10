@@ -52,12 +52,14 @@ quantile_weight = 0.999
 
 ## Hyperparameters
 # M2
-model_name = 'M2_hdim_128_128_zdim_032_end_epoch_100/M2_epoch_085_vloss_417.69'
+# model_name = 'M2_hdim_128_128_zdim_032_end_epoch_100/M2_epoch_085_vloss_417.69'
+model_name = 'M2_hdim_128_128_zdim_032_end_epoch_100/M2_epoch_098_vloss_414.57'
 
 # classifier
 # classif_name = 'classif_normdataset_hdim_128_128_end_epoch_100/Classifier_epoch_096_vloss_57.53'
-#classif_name = 'oracle_classif'
-classif_name = 'timo_classif'
+# classif_name = 'classif_normdataset_hdim_128_128_end_epoch_100/Classifier_epoch_073_vloss_56.43'
+classif_name = 'oracle_classif'
+# classif_name = 'timo_classif'
 
 # Directory where estimated data is stored
 model_data_dir = os.path.join('data', dataset_size, 'models', model_name, classif_name + '/')

@@ -26,7 +26,7 @@ dataset_size = 'complete'
 
 # System 
 cuda = torch.cuda.is_available()
-cuda_device = "cuda:0"
+cuda_device = "cuda:2"
 device = torch.device(cuda_device if cuda else "cpu")
 
 # STFT parameters
@@ -80,7 +80,7 @@ def main():
     print('Load models')
     model = Classifier([x_dim, h_dim, y_dim])
     model.load_state_dict(torch.load(model_dir, map_location=cuda_device))
-    if cuda: model = model.cuda()
+    if cuda: model = model.to(device)
 
     print('- Number of learnable parameters: {}'.format(count_parameters(model)))
 

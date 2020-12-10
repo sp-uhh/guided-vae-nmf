@@ -142,35 +142,35 @@ def main():
                  hop_percent=hop_percent,
                  dtype=dtype) # shape = (freq_bins, frames)                 
 
-        # ## mixture signal (wav + spectro)
-        # ## target signal (wav + spectro + mask)
-        # ## estimated signal (wav + spectro + mask)
-        # signal_list = [
-        #     [x_t, x_tf, None], # mixture: (waveform, tf_signal, no mask)
-        #     [s_t, s_tf, y], # clean speech
-        #     [s_hat_t, s_hat_tf, None]
-        # ]
-        # fig = display_multiple_signals(signal_list,
-        #                     fs=fs, vmin=vmin, vmax=vmax,
-        #                     wlen_sec=wlen_sec, hop_percent=hop_percent,
-        #                     xticks_sec=xticks_sec, fontsize=fontsize)
+        ## mixture signal (wav + spectro)
+        ## target signal (wav + spectro + mask)
+        ## estimated signal (wav + spectro + mask)
+        signal_list = [
+            [x_t, x_tf, None], # mixture: (waveform, tf_signal, no mask)
+            [s_t, s_tf, y], # clean speech
+            [s_hat_t, s_hat_tf, None]
+        ]
+        fig = display_multiple_signals(signal_list,
+                            fs=fs, vmin=vmin, vmax=vmax,
+                            wlen_sec=wlen_sec, hop_percent=hop_percent,
+                            xticks_sec=xticks_sec, fontsize=fontsize)
         
-        # # put all metrics in the title of the figure
-        # title = "Input SNR = {:.1f} dB \n" \
-        #     "SI-SDR = {:.1f} dB, " \
-        #     "SI-SIR = {:.1f} dB, " \
-        #     "SI-SAR = {:.1f} dB \n" \
-        #     "STOI = {:.2f}, " \
-        #     "PESQ = {:.2f} \n" \
-        #     "".format(all_snr_db[i], si_sdr, si_sir, si_sar, stoi_s_hat, pesq_s_hat)
+        # put all metrics in the title of the figure
+        title = "Input SNR = {:.1f} dB \n" \
+            "SI-SDR = {:.1f} dB, " \
+            "SI-SIR = {:.1f} dB, " \
+            "SI-SAR = {:.1f} dB \n" \
+            "STOI = {:.2f}, " \
+            "PESQ = {:.2f} \n" \
+            "".format(all_snr_db[i], si_sdr, si_sir, si_sar, stoi_s_hat, pesq_s_hat)
 
-        # fig.suptitle(title, fontsize=40)
+        fig.suptitle(title, fontsize=40)
 
-        # # Save figure
-        # fig.savefig(model_data_dir + os.path.splitext(file_path)[0] + '_fig.png')
+        # Save figure
+        fig.savefig(model_data_dir + os.path.splitext(file_path)[0] + '_fig.png')
 
-        # # Clear figure
-        # plt.close()
+        # Clear figure
+        plt.close()
 
     # Confidence interval
     metrics = {

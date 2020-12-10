@@ -4,6 +4,7 @@ import torch
 import pickle
 import numpy as np
 from tqdm import tqdm
+from pytorch_complex_tensor import ComplexTensor
 
 sys.path.append('.')
 
@@ -11,17 +12,17 @@ from torch.utils.data import DataLoader
 from python.utils import count_parameters
 from python.data import SpectrogramLabeledFrames
 from python.models.models import Classifier
-from python.models.utils import mean_square_error_signal, mean_square_error_mask
+from python.models.utils import mean_square_error_signal, mean_square_error_mask, magnitude_spectrum_approxiamation_loss
 
 ##################################### SETTINGS #####################################################
 
 # Dataset
-# dataset_size = 'subset'
-dataset_size = 'complete'
+dataset_size = 'subset'
+# dataset_size = 'complete'
 
 # System 
 cuda = torch.cuda.is_available()
-cuda_device = "cuda:0"
+cuda_device = "cuda:1"
 device = torch.device(cuda_device if cuda else "cpu")
 num_workers = 8
 pin_memory = True
@@ -31,7 +32,7 @@ eps = 1e-8
 # Deep Generative Model
 x_dim = 513 
 y_dim = 513
-h_dim = [128, 128]
+h_dim = [128, 128, 128, 128, 128]
 batch_norm = False
 std_norm =True
 
@@ -42,21 +43,23 @@ log_interval = 250
 start_epoch = 1
 end_epoch = 200
 
-model_name = 'wiener_avgfreq_maskloss_normdataset_input_amplitude_hdim_{:03d}_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], end_epoch)
+model_name = 'dummy_wiener_new_msaloss_normdataset_hdim_{:03d}_{:03d}_{:03d}_{:03d}_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], h_dim[2], h_dim[3], h_dim[4], end_epoch)
 
 #####################################################################################################
 
 print('Load data')
-train_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_tr_s_noisy_frames.p'), 'rb'))
-valid_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_dt_05_noisy_frames.p'), 'rb'))
+# train_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_tr_s_noisy_frames.p'), 'rb'))
+# valid_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_dt_05_noisy_frames.p'), 'rb'))
+train_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_tr_s_noisy_frames_complex.p'), 'rb'))
+valid_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_dt_05_noisy_frames_complex.p'), 'rb'))
 
 if std_norm:
     # Normalize train_data, valid_data
-    mean = np.mean(train_data, axis=1)[:, None]
-    std = np.std(train_data, axis=1, ddof=1)[:, None]
+    mean = np.mean(np.power(abs(train_data), 2), axis=1)[:, None]
+    std = np.std(np.power(abs(train_data), 2), axis=1, ddof=1)[:, None]
 
-train_labels = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_tr_s_noisy_wiener_labels.p'), 'rb'))
-valid_labels = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_dt_05_noisy_wiener_labels.p'), 'rb'))
+train_labels = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_tr_s_noisy_wiener_labels_complex.p'), 'rb'))
+valid_labels = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_dt_05_noisy_wiener_labels_complex.p'), 'rb'))
 
 train_dataset = SpectrogramLabeledFrames(train_data, train_labels)
 valid_dataset = SpectrogramLabeledFrames(valid_data, valid_labels)
@@ -111,7 +114,7 @@ def main():
 
             # Normalize power spectrogram
             if std_norm:
-                x_wiener = x - mean.T
+                x_wiener = torch.real((x * torch.conj(x))) - mean.T
                 x_wiener /= (std + eps).T
 
                 y_hat_soft = model(x_wiener) 
@@ -119,7 +122,9 @@ def main():
                 y_hat_soft = model(x)  
 
             # loss = mean_square_error_signal(x=torch.sqrt(x), y=y, y_hat=y_hat_soft)
-            loss = mean_square_error_mask(y=y, y_hat=y_hat_soft)
+            #loss = mean_square_error_mask(y=y, y_hat=y_hat_soft)
+            #loss = magnitude_spectrum_approxiamation_loss(x=torch.sqrt(x), s=y, y_hat=y_hat_soft)
+            loss = magnitude_spectrum_approxiamation_loss(x=x, s=y, y_hat=y_hat_soft)
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
@@ -161,7 +166,8 @@ def main():
                     y_hat_soft = model(x)  
 
                 # loss = mean_square_error_signal(x=torch.sqrt(x), y=y, y_hat=y_hat_soft)
-                loss = mean_square_error_mask(y=y, y_hat=y_hat_soft)
+                #loss = mean_square_error_mask(y=y, y_hat=y_hat_soft)
+                loss = magnitude_spectrum_approxiamation_loss(x=torch.sqrt(x), s=y, y_hat=y_hat_soft)
 
                 total_loss += loss.item()
 

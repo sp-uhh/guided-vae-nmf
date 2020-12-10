@@ -26,7 +26,7 @@ dataset_size = 'complete'
 
 # System 
 cuda = torch.cuda.is_available()
-cuda_device = "cuda:0"
+cuda_device = "cuda:1"
 device = torch.device(cuda_device if cuda else "cpu")
 
 # STFT parameters
@@ -37,7 +37,9 @@ win = 'hann' # type of window
 
 # Hyperparameters 
 # M2
-model_name = 'M2_VAD_hdim_128_128_zdim_032_end_epoch_100/M2_epoch_085_vloss_465.98'
+#model_name = 'M2_VAD_hdim_128_128_zdim_032_end_epoch_100/M2_epoch_085_vloss_465.98'
+# model_name = 'M2_VAD_quantile_0.999_hdim_128_128_zdim_032_end_epoch_200/M2_epoch_085_vloss_487.80'
+model_name = 'M2_VAD_quantile_0.999_hdim_128_128_zdim_032_end_epoch_200/M2_epoch_087_vloss_482.93'
 x_dim = 513 
 y_dim = 1
 z_dim = 32
@@ -45,9 +47,12 @@ h_dim = [128, 128]
 eps = 1e-8
 
 # Classifier
-# classif_name = 'oracle_classif'
+classif_name = 'oracle_classif'
+quantile_fraction = 0.999
+quantile_weight = 0.999
+
 # classif_name = 'ones_classif'
-classif_name = 'zeros_classif'
+# classif_name = 'zeros_classif'
 
 # NMF
 nmf_rank = 10
@@ -75,7 +80,7 @@ def main():
 
     model = DeepGenerativeModel([x_dim, y_dim, z_dim, h_dim], classifier)
     model.load_state_dict(torch.load(os.path.join('models', model_name + '.pt'), map_location=cuda_device))
-    if cuda: model = model.cuda()
+    if cuda: model = model.to(device)
 
     print('- Number of learnable parameters: {}'.format(count_parameters(model)))
 
@@ -104,9 +109,9 @@ def main():
         s_t, fs_s = sf.read(processed_data_dir + os.path.splitext(file_path)[0] + '_s.wav') # clean speech
         s_tf = stft(s_t, fs, wlen_sec, win, hop_percent)
 
-        #y_hat = clean_speech_VAD(s_tf, quantile_fraction=0.98, quantile_weight=0.999)
+        y_hat = clean_speech_VAD(s_tf, quantile_fraction=quantile_fraction, quantile_weight=quantile_weight)
         #y_hat = np.ones(s_tf.shape[1], dtype='float32')[None]
-        y_hat = np.zeros(s_tf.shape[1], dtype='float32')[None]
+        # y_hat = np.zeros(s_tf.shape[1], dtype='float32')[None]
         y_hat_hard = torch.from_numpy(y_hat.T).to(device)
 
         # Encode

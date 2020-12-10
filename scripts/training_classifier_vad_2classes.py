@@ -10,18 +10,18 @@ sys.path.append('.')
 from torch.utils.data import DataLoader
 from python.utils import count_parameters
 from python.data import SpectrogramLabeledFrames
-from python.models.models import Classifier
-from python.models.utils import binary_cross_entropy, f1_loss
+from python.models.models import Classifier2Classes
+from python.models.utils import binary_cross_entropy_2classes, f1_loss
 
 ##################################### SETTINGS #####################################################
 
 # Dataset
-dataset_size = 'subset'
-# dataset_size = 'complete'
+# dataset_size = 'subset'
+dataset_size = 'complete'
 
 # System 
 cuda = torch.cuda.is_available()
-cuda_device = "cuda:0"
+cuda_device = "cuda:1"
 device = torch.device(cuda_device if cuda else "cpu")
 num_workers = 8
 pin_memory = True
@@ -42,9 +42,7 @@ log_interval = 250
 start_epoch = 1
 end_epoch = 100
 
-# model_name = 'classif_VAD_normdataset_batchnorm_before_hdim_{:03d}_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], end_epoch)
-#model_name = 'classif_VAD_batchnorm_before_hdim_{:03d}_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], end_epoch)
-model_name = 'dummy_classif_VAD_qf0.999_normdataset_hdim_{:03d}_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], end_epoch)
+model_name = 'classif_VAD_2classes_hdim_{:03d}_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], end_epoch)
 
 #####################################################################################################
 
@@ -65,8 +63,6 @@ if std_norm_dataset:
 
 train_labels = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_tr_s_noisy_vad_labels.p'), 'rb'))
 valid_labels = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_dt_05_noisy_vad_labels.p'), 'rb'))
-# train_labels = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_tr_s_noisy_vad_labels_qf0.999.p'), 'rb'))
-# valid_labels = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_dt_05_noisy_vad_labels_qf0.999.p'), 'rb'))
 
 train_dataset = SpectrogramLabeledFrames(train_data, train_labels)
 valid_dataset = SpectrogramLabeledFrames(valid_data, valid_labels)
@@ -83,7 +79,7 @@ print('- Number of validation samples: {}'.format(len(valid_dataset)))
 
 def main():
     print('Create model')
-    model = Classifier([x_dim, h_dim, y_dim], batch_norm=batch_norm)
+    model = Classifier2Classes([x_dim, h_dim, y_dim], batch_norm=batch_norm)
     if cuda: model = model.to(device, non_blocking=non_blocking)
 
     # Create model folder
@@ -116,14 +112,14 @@ def main():
                 x, y = x.to(device, non_blocking=non_blocking), y.to(device, non_blocking=non_blocking)
 
             y_hat_soft = model(x)
-            loss = binary_cross_entropy(y_hat_soft, y, eps)
+            loss = binary_cross_entropy_2classes(y_hat_soft[:,0], y_hat_soft[:,1], y, eps)
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
 
             total_loss += loss.item()
 
-            y_hat_hard = (y_hat_soft > 0.5).int()
+            y_hat_hard = (y_hat_soft[:,0] > 0.5).int()
 
             f1_score, tp, tn, fp, fn = f1_loss(y_hat_hard=torch.flatten(y_hat_hard), y=torch.flatten(y), epsilon=eps)
             total_tp += tp.item()
@@ -161,10 +157,10 @@ def main():
                     x, y = x.to(device, non_blocking=non_blocking), y.to(device, non_blocking=non_blocking)
 
                 y_hat_soft = model(x)
-                loss = binary_cross_entropy(y_hat_soft, y, eps)
+                loss = binary_cross_entropy_2classes(y_hat_soft[:,0], y_hat_soft[:,1], y, eps)
 
                 total_loss += loss.item()
-                y_hat_hard = (y_hat_soft > 0.5).int()
+                y_hat_hard = (y_hat_soft[:,0] > 0.5).int()
                 f1_score, tp, tn, fp, fn = f1_loss(y_hat_hard=torch.flatten(y_hat_hard), y=torch.flatten(y), epsilon=eps)
                 total_tp += tp.item()
                 total_tn += tn.item()

@@ -36,7 +36,8 @@ win = 'hann' # type of window
 dtype = 'complex64'
 
 ## Ideal binary mask
-quantile_fraction = 0.98
+quantile_fraction = 0.999
+#quantile_fraction = 0.9
 quantile_weight = 0.999
 
 # Ideal wiener mask
@@ -95,7 +96,6 @@ def process_noise():
 
 def main():
 
-
     # Do 2 iterations to save separately noisy_spectro and noisy_labels (RAM issues)
     # for iteration in range(2):
     for iteration in range(1):
@@ -117,6 +117,10 @@ def main():
             noise_index = np.random.randint(len(noise_types), size=len(file_paths))
             
             snrs = [-5, -2.5, 0, 2.5, 5.0]
+<<<<<<< HEAD
+=======
+            #snrs = [-15.0, -10.0, -5.0, 0.0, 5.0]
+>>>>>>> origin/new_wiener_target
             snrs_index = np.random.randint(len(snrs), size=len(file_paths))
             
             # Create noise audios
@@ -238,6 +242,18 @@ def main():
 
             if iteration == 0:
                 noisy_labels = np.concatenate(noisy_labels, axis=1)
+                
+                # # write spectrograms
+                # write_dataset(noisy_labels,
+                #             output_data_dir=output_pickle_dir,
+                #             dataset_type=dataset_type,
+                #             suffix='noisy_abs_frames_labels')
+
+                # # write spectrograms
+                # write_dataset(noisy_labels,
+                #             output_data_dir=output_pickle_dir,
+                #             dataset_type=dataset_type,
+                #             suffix='noisy_wiener_labels')
 
                 # # write spectrograms
                 # write_dataset(noisy_labels,
@@ -255,7 +271,7 @@ def main():
                 # write_dataset(noisy_labels,
                 #             output_data_dir=output_pickle_dir,
                 #             dataset_type=dataset_type,
-                #             suffix='noisy_vad_labels')
+                #             suffix='noisy_vad_labels_qf0.999')
 
                 del noisy_labels
 

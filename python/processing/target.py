@@ -111,8 +111,8 @@ def ideal_wiener_mask(speech_tf,
     :param quantile_weight: Governs the influence of the mask
     :return: quantile_mask
     """
-    speech_power = abs(speech_tf * speech_tf.conj())
-    noise_power = abs(noise_tf * noise_tf.conj())
+    speech_power = np.power(abs(speech_tf), 2)
+    noise_power = np.power(abs(noise_tf), 2)
     wiener_filter = speech_power / (speech_power + noise_power + eps)
     return wiener_filter
 

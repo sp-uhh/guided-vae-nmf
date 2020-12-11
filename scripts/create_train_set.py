@@ -16,17 +16,19 @@ from python.utils import open_file
 ## Dataset
 dataset_types = ['train', 'validation']
 
-# dataset_size = 'subset'
-dataset_size = 'complete'
+dataset_size = 'subset'
+# dataset_size = 'complete'
 
 # data_dir = 'h5'
 data_dir = 'export'
 
-input_speech_dir = os.path.join('data', dataset_size, 'raw/')
-output_dataset_dir = os.path.join('data', dataset_size, data_dir + '/')
 dataset_name = 'CSR-1-WSJ-0'
-# labels = 'labels'
-labels = 'vad_labels'
+
+labels = 'labels'
+# labels = 'vad_labels'
+
+input_speech_dir = os.path.join('data', dataset_size, 'raw/')
+output_dataset_file = os.path.join('data', dataset_size, data_dir, dataset_name + '_' + labels + '.h5')
 
 ## STFT
 fs = int(16e3) # Sampling rate
@@ -68,14 +70,16 @@ shuffle = False
 
 def main():
 
-    if not os.path.exists(output_dataset_dir):
-        os.makedirs(output_dataset_dir)
+    if not os.path.exists(os.path.dirname(output_dataset_file)):
+        os.makedirs(os.path.dirname(output_dataset_file))
 
-    output_h5_dir = output_dataset_dir + dataset_name + '_' + labels + '.h5'
-
-    with h5.File(output_h5_dir, 'a', rdcc_nbytes=rdcc_nbytes, rdcc_nslots=rdcc_nslots) as f:    
+    with h5.File(output_dataset_file, 'a', rdcc_nbytes=rdcc_nbytes, rdcc_nslots=rdcc_nslots) as f:    
 
         for dataset_type in dataset_types:
+
+            # Create file list
+            file_paths = speech_list(input_speech_dir=input_speech_dir,
+                                    dataset_type=dataset_type)
     
             # Delete datasets if already exists
             if 'X_' + dataset_type in f:
@@ -103,14 +107,10 @@ def main():
             f.attrs['X_chunks'] = X_chunks
             f.attrs['Y_chunks'] = Y_chunks
             f.attrs['compression'] = compression
-
-            # Create file list
-            file_paths = speech_list(input_speech_dir=input_speech_dir,
-                                    dataset_type=dataset_type)
-
+            
             # Store dataset in variables for faster I/O
             fx = f['X_' + dataset_type]
-            fy = f['Y_' + dataset_type]
+            fy = f['Y_' + dataset_type]            
 
             for i, file_path in tqdm(enumerate(file_paths)):
 

@@ -6,15 +6,6 @@ from glob import glob
 # import tables #needed for blosc compression
 import h5py as h5
 
-# STFT parameters
-fs = int(16e3) 
-wlen_sec = 64e-3 
-wlen = np.int(np.power(2, np.ceil(np.log2(wlen_sec*fs))))
-win = np.sin(np.arange(.5,wlen-.5+1)/wlen*np.pi)
-hop_percent = 0.25 
-hop = np.int(hop_percent*wlen) 
-nfft = wlen
-
 def collate_fn(data):    
     max_length = max(sample.shape[1] for sample in data)      
     batch = []

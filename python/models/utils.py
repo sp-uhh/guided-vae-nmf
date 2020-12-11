@@ -27,7 +27,6 @@ def enumerate_discrete(x, y_dim):
 
     return Variable(generated.float())
 
-
 def onehot(k):
     """
     Converts a number to its one-hot or 1-of-k representation
@@ -42,7 +41,6 @@ def onehot(k):
         return y
     return encode
 
-
 def log_sum_exp(tensor, dim=-1, sum_op=torch.sum):
     """
     Uses the LogSumExp (LSE) as an approximation for the sum in a log-domain.
@@ -53,7 +51,6 @@ def log_sum_exp(tensor, dim=-1, sum_op=torch.sum):
     """
     max, _ = torch.max(tensor, dim=dim, keepdim=True)
     return torch.log(sum_op(torch.exp(tensor - max), dim=dim, keepdim=True) + 1e-8) + max
-
 
 def binary_cross_entropy(r, x, eps):
     return -torch.mean(torch.sum(x*torch.log(r + eps) + (1 - x)*torch.log(1 - r + eps), dim=-1))

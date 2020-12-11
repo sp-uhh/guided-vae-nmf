@@ -14,9 +14,11 @@ def clean_speech_IBM(observations,
     :return: quantile_mask
     """
     power = abs(observations * observations.conj())
+    sorted_power = np.random.rand(power.shape[1])
     sorted_power = np.sort(power, axis=None)[::-1]
     lorenz_function = np.cumsum(sorted_power) / np.sum(sorted_power)
-    threshold = np.min(sorted_power[lorenz_function < quantile_fraction])
+    # threshold = np.min(sorted_power[lorenz_function < quantile_fraction])
+    threshold = sorted_power[lorenz_function < quantile_fraction][-1]
     mask = power > threshold
     mask = 0.5 + quantile_weight * (mask - 0.5)
     mask = np.round(mask) # to have either 0 or 1 values
@@ -34,16 +36,17 @@ def clean_speech_VAD(observations,
     :return: quantile_mask
     """
     power = abs(observations * observations.conj())
-    power = power.sum(axis=0) # sum energy of all frequencies
+    power = power.sum(axis=0)
     sorted_power = np.sort(power, axis=None)[::-1]
     lorenz_function = np.cumsum(sorted_power) / np.sum(sorted_power)
-    threshold = np.min(sorted_power[lorenz_function < quantile_fraction])
+    # threshold = np.min(sorted_power[lorenz_function < quantile_fraction])
+    threshold = sorted_power[lorenz_function < quantile_fraction][-1]
     vad = power > threshold
     vad = 0.5 + quantile_weight * (vad - 0.5)
     vad = np.round(vad) # to have either 0 or 1 values
     if vad.dtype != 'float32':
         vad = np.float32(vad) # convert to float32
-    vad = vad[None] # vad.shape = (1, frames)
+    vad = vad[None]
     return vad
 
 def noise_robust_clean_speech_VAD(observations,

@@ -8,7 +8,7 @@ sys.path.append('.')
 
 from torch.utils.data import DataLoader
 from python.utils import count_parameters
-from python.data import SpectrogramLabeledFrames
+from python.data import SpectrogramLabeledFrames, HDF5SpectrogramLabeledFrames
 from python.models.models import DeepGenerativeModel
 from python.models.utils import elbo
 
@@ -18,20 +18,35 @@ from python.models.utils import elbo
 # dataset_size = 'subset'
 dataset_size = 'complete'
 
-# System 
+dataset_name = 'CSR-1-WSJ-0'
+data_dir = 'export'
+labels = 'labels'
+# labels = 'vad_labels'
+
+# System
 cuda = torch.cuda.is_available()
 cuda_device = "cuda:0"
 device = torch.device(cuda_device if cuda else "cpu")
-num_workers = 8
+num_workers = 16
 pin_memory = True
 non_blocking = True
+rdcc_nbytes = 1024**2*400 # The number of bytes to use for the chunk cache
+                           # Default is 1 Mb
+                           # Here we are using 400Mb of chunk_cache_mem here
+rdcc_nslots = 1e5 # The number of slots in the cache's hash table
+                  # Default is 521
+                  # ideally 100 x number of chunks that can be fit in rdcc_nbytes
+                  # (see https://docs.h5py.org/en/stable/high/file.html?highlight=rdcc#chunk-cache)
 eps = 1e-8
 
 # Deep Generative Model
-x_dim = 513 
-y_dim = 513
-z_dim = 16
-h_dim = [128]
+x_dim = 513
+if labels == 'labels':
+    y_dim = 513
+if labels == 'vad_labels':
+    y_dim = 1
+z_dim = 32
+h_dim = [128, 128]
 
 # Classifier
 classifier = None
@@ -43,24 +58,28 @@ log_interval = 250
 start_epoch = 1
 end_epoch = 200
 
-#model_name = 'M2_hdim_{:03d}_{:03d}_zdim_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], z_dim, end_epoch)
-model_name = 'M2_hdim_{:03d}_zdim_{:03d}_end_epoch_{:03d}'.format(h_dim[0], z_dim, end_epoch)
+if labels == 'labels':
+    #model_name = 'M2_hdim_{:03d}_{:03d}_zdim_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], z_dim, end_epoch)
+    # model_name = 'M2_hdim_{:03d}_zdim_{:03d}_end_epoch_{:03d}'.format(h_dim[0], z_dim, end_epoch)
+    model_name = 'dummy_M2_hdim_{:03d}_{:03d}_zdim_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], z_dim, end_epoch)
+
+if labels == 'vad_labels':
+    model_name = 'dummy_M2_VAD_quantile_0.9999_hdim_{:03d}_{:03d}_zdim_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], z_dim, end_epoch)
+    # model_name = 'M2_VAD_hdim_{:03d}_zdim_{:03d}_end_epoch_{:03d}'.format(h_dim[0], z_dim, end_epoch)
+    #model_name = 'M2_VAD_normdataset_hdim_{:03d}_zdim_{:03d}_end_epoch_{:03d}'.format(h_dim[0], z_dim, end_epoch)
 
 #####################################################################################################
 
 print('Load data')
-train_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_tr_s_frames.p'), 'rb'))
-valid_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_dt_05_frames.p'), 'rb'))
+output_h5_dir = os.path.join('data', dataset_size, data_dir, dataset_name + '_' + labels + '.h5')
 
-train_labels = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_tr_s_labels.p'), 'rb'))
-valid_labels = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_dt_05_labels.p'), 'rb'))
-
-train_dataset = SpectrogramLabeledFrames(train_data, train_labels)
-valid_dataset = SpectrogramLabeledFrames(valid_data, valid_labels)
+train_dataset = HDF5SpectrogramLabeledFrames(output_h5_dir=output_h5_dir, dataset_type='train', rdcc_nbytes=rdcc_nbytes, rdcc_nslots=rdcc_nslots)
+valid_dataset = HDF5SpectrogramLabeledFrames(output_h5_dir=output_h5_dir, dataset_type='validation', rdcc_nbytes=rdcc_nbytes, rdcc_nslots=rdcc_nslots)
 
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, sampler=None, 
                         batch_sampler=None, num_workers=num_workers, pin_memory=pin_memory, 
                         drop_last=False, timeout=0, worker_init_fn=None)
+
 valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, sampler=None, 
                         batch_sampler=None, num_workers=num_workers, pin_memory=pin_memory, 
                         drop_last=False, timeout=0, worker_init_fn=None)
@@ -93,7 +112,7 @@ def main():
     for epoch in range(start_epoch, end_epoch):
         model.train()
         total_elbo, total_likelihood, total_kl = (0, 0, 0)
-        for batch_idx, (x, y) in enumerate(train_loader):
+        for batch_idx, (x, y) in tqdm(enumerate(train_loader)):
             if cuda:
                 x, y = x.to(device, non_blocking=non_blocking), y.to(device, non_blocking=non_blocking)
 

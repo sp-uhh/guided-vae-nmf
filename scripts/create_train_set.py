@@ -16,8 +16,8 @@ from python.utils import open_file
 ## Dataset
 dataset_types = ['train', 'validation']
 
-dataset_size = 'subset'
-# dataset_size = 'complete'
+# dataset_size = 'subset'
+dataset_size = 'complete'
 
 # data_dir = 'h5'
 data_dir = 'export'
@@ -25,8 +25,8 @@ data_dir = 'export'
 input_speech_dir = os.path.join('data', dataset_size, 'raw/')
 output_dataset_dir = os.path.join('data', dataset_size, data_dir + '/')
 dataset_name = 'CSR-1-WSJ-0'
-labels = 'labels'
-# labels = 'vad_labels'
+# labels = 'labels'
+labels = 'vad_labels'
 
 ## STFT
 fs = int(16e3) # Sampling rate

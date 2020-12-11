@@ -4,35 +4,55 @@ import torch
 import pickle
 import numpy as np
 from tqdm import tqdm
-from pytorch_complex_tensor import ComplexTensor
+import h5py as h5
 
 sys.path.append('.')
 
 from torch.utils.data import DataLoader
 from python.utils import count_parameters
-from python.data import SpectrogramLabeledFrames
+from python.data import HDF5SpectrogramLabeledFrames
 from python.models.models import Classifier
 from python.models.utils import mean_square_error_signal, mean_square_error_mask, magnitude_spectrum_approxiamation_loss
 
 ##################################### SETTINGS #####################################################
 
 # Dataset
-dataset_size = 'subset'
-# dataset_size = 'complete'
+# dataset_size = 'subset'
+dataset_size = 'complete'
+
+dataset_name = 'CSR-1-WSJ-0'
+data_dir = 'export'
+# labels = 'noisy_labels'
+# labels = 'noisy_vad_labels'
+# labels = 'noisy_wiener_labels'
 
 # System 
 cuda = torch.cuda.is_available()
-cuda_device = "cuda:1"
+cuda_device = "cuda:0"
 device = torch.device(cuda_device if cuda else "cpu")
-num_workers = 8
+num_workers = 16
 pin_memory = True
 non_blocking = True
+rdcc_nbytes = 1024**2*400 # The number of bytes to use for the chunk cache
+                           # Default is 1 Mb
+                           # Here we are using 400Mb of chunk_cache_mem here
+rdcc_nslots = 1e5 # The number of slots in the cache's hash table
+                  # Default is 521
+                  # ideally 100 x number of chunks that can be fit in rdcc_nbytes
+                  # (see https://docs.h5py.org/en/stable/high/file.html?highlight=rdcc#chunk-cache)
 eps = 1e-8
 
 # Deep Generative Model
 x_dim = 513 
-y_dim = 513
-h_dim = [128, 128, 128, 128, 128]
+if labels == 'noisy_labels':
+    y_dim = 513
+    h_dim = [128, 128]
+if labels == 'noisy_vad_labels':
+    y_dim = 1
+    h_dim = [128, 128]
+if labels == 'noisy_wiener_labels':
+    y_dim = 513
+    h_dim = [128, 128, 128, 128, 128]
 batch_norm = False
 std_norm =True
 
@@ -43,26 +63,24 @@ log_interval = 250
 start_epoch = 1
 end_epoch = 200
 
-model_name = 'dummy_wiener_new_msaloss_normdataset_hdim_{:03d}_{:03d}_{:03d}_{:03d}_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], h_dim[2], h_dim[3], h_dim[4], end_epoch)
+if labels == 'noisy_labels':
+    model_name = 'wsj0_snr-15_5_classif_normdataset_batchnorm_before_hdim_{:03d}_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], end_epoch)
+
+if labels == 'noisy_vad_labels':
+    # model_name = 'classif_VAD_normdataset_batchnorm_before_hdim_{:03d}_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], end_epoch)
+    #model_name = 'classif_VAD_batchnorm_before_hdim_{:03d}_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], end_epoch)
+    model_name = 'dummy_classif_VAD_qf0.999_normdataset_hdim_{:03d}_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], end_epoch)
+
+if labels == 'noisy_wiener_labels':
+    model_name = 'dummy_wiener_new_msaloss_normdataset_hdim_{:03d}_{:03d}_{:03d}_{:03d}_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], h_dim[2], h_dim[3], h_dim[4], end_epoch)
 
 #####################################################################################################
 
 print('Load data')
-# train_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_tr_s_noisy_frames.p'), 'rb'))
-# valid_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_dt_05_noisy_frames.p'), 'rb'))
-train_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_tr_s_noisy_frames_complex.p'), 'rb'))
-valid_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_dt_05_noisy_frames_complex.p'), 'rb'))
+output_h5_dir = os.path.join('data', dataset_size, data_dir, dataset_name + '_' + labels + '.h5')
 
-if std_norm:
-    # Normalize train_data, valid_data
-    mean = np.mean(np.power(abs(train_data), 2), axis=1)[:, None]
-    std = np.std(np.power(abs(train_data), 2), axis=1, ddof=1)[:, None]
-
-train_labels = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_tr_s_noisy_wiener_labels_complex.p'), 'rb'))
-valid_labels = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_dt_05_noisy_wiener_labels_complex.p'), 'rb'))
-
-train_dataset = SpectrogramLabeledFrames(train_data, train_labels)
-valid_dataset = SpectrogramLabeledFrames(valid_data, valid_labels)
+train_dataset = HDF5SpectrogramLabeledFrames(output_h5_dir=output_h5_dir, dataset_type='train', rdcc_nbytes=rdcc_nbytes, rdcc_nslots=rdcc_nslots)
+valid_dataset = HDF5SpectrogramLabeledFrames(output_h5_dir=output_h5_dir, dataset_type='validation', rdcc_nbytes=rdcc_nbytes, rdcc_nslots=rdcc_nslots)
 
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, sampler=None, 
                         batch_sampler=None, num_workers=num_workers, pin_memory=pin_memory, 
@@ -85,8 +103,15 @@ def main():
         os.makedirs(model_dir)
 
     if std_norm:
+        print('Load mean and std')
+        # Normalize train_data, valid_data
+        # mean = np.mean(np.power(abs(train_data), 2), axis=1)[:, None]
+        # std = np.std(np.power(abs(train_data), 2), axis=1, ddof=1)[:, None]
+        with h5.File(output_h5_dir, 'r') as file:
+            mean = file['X_train_mean'][:]
+            std = file['X_train_std'][:]
+
         # Save mean and std
-        global mean, std
         np.save(model_dir + '/' + 'trainset_mean.npy', mean)
         np.save(model_dir + '/' + 'trainset_std.npy', std)
 
@@ -114,7 +139,7 @@ def main():
 
             # Normalize power spectrogram
             if std_norm:
-                x_wiener = torch.real((x * torch.conj(x))) - mean.T
+                x_wiener = x - mean.T
                 x_wiener /= (std + eps).T
 
                 y_hat_soft = model(x_wiener) 
@@ -122,9 +147,9 @@ def main():
                 y_hat_soft = model(x)  
 
             # loss = mean_square_error_signal(x=torch.sqrt(x), y=y, y_hat=y_hat_soft)
-            #loss = mean_square_error_mask(y=y, y_hat=y_hat_soft)
+            loss = mean_square_error_mask(y=y, y_hat=y_hat_soft)
             #loss = magnitude_spectrum_approxiamation_loss(x=torch.sqrt(x), s=y, y_hat=y_hat_soft)
-            loss = magnitude_spectrum_approxiamation_loss(x=x, s=y, y_hat=y_hat_soft)
+            # loss = magnitude_spectrum_approxiamation_loss(x=x, s=y, y_hat=y_hat_soft)
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
@@ -166,8 +191,8 @@ def main():
                     y_hat_soft = model(x)  
 
                 # loss = mean_square_error_signal(x=torch.sqrt(x), y=y, y_hat=y_hat_soft)
-                #loss = mean_square_error_mask(y=y, y_hat=y_hat_soft)
-                loss = magnitude_spectrum_approxiamation_loss(x=torch.sqrt(x), s=y, y_hat=y_hat_soft)
+                loss = mean_square_error_mask(y=y, y_hat=y_hat_soft)
+                # loss = magnitude_spectrum_approxiamation_loss(x=torch.sqrt(x), s=y, y_hat=y_hat_soft)
 
                 total_loss += loss.item()
 

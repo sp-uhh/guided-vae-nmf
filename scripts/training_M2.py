@@ -8,7 +8,7 @@ sys.path.append('.')
 
 from torch.utils.data import DataLoader
 from python.utils import count_parameters
-from python.data import SpectrogramLabeledFrames, HDF5SpectrogramLabeledFrames
+from python.data import HDF5SpectrogramLabeledFrames
 from python.models.models import DeepGenerativeModel
 from python.models.utils import elbo
 

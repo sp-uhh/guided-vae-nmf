@@ -57,7 +57,7 @@ if labels == 'labels':
     Y_shape = (513, 0)
     Y_maxshape = (513, None)
     Y_chunks = (513, 1)
-
+    
 if labels == 'vad_labels':
     Y_shape = (1, 0)
     Y_maxshape = (1, None)    

@@ -21,7 +21,7 @@ dataset_size = 'complete'
 dataset_name = 'CSR-1-WSJ-0'
 # data_dir = 'h5'
 data_dir = 'export'
-suffix = 'lzf_pip_transpose'
+suffix = 'vad_labels'
 
 # System
 cuda = torch.cuda.is_available()

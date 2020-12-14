@@ -21,8 +21,8 @@ dataset_size = 'complete'
 
 dataset_name = 'CSR-1-WSJ-0'
 data_dir = 'export'
-# labels = 'noisy_labels'
-labels = 'noisy_vad_labels'
+labels = 'noisy_labels'
+# labels = 'noisy_vad_labels'
 
 # System 
 cuda = torch.cuda.is_available()

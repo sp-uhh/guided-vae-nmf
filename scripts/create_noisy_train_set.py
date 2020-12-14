@@ -27,8 +27,8 @@ data_dir = 'export'
 speech_dataset_name = 'CSR-1-WSJ-0'
 noise_dataset_name = 'Demand'
 
-# labels = 'noisy_labels'
-labels = 'noisy_vad_labels'
+labels = 'noisy_labels'
+# labels = 'noisy_vad_labels'
 # labels = 'noisy_wiener_labels'
 
 input_speech_dir = os.path.join('data', dataset_size, 'raw/')
@@ -321,7 +321,7 @@ def main():
                 #NB: compute the empirical std (!= regular std)
                 n_samples = fx.shape[1]
                 mean = channels_sum / n_samples
-                std = np.sqrt((1/(n_samples*(n_samples - 1)))*(channels_squared_sum - n_samples * mean**2))
+                std = np.sqrt((1/(n_samples - 1))*(channels_squared_sum - n_samples * mean**2))
                 
                 # Delete datasets if already exists
                 if 'X_' + dataset_type + '_mean' in f:

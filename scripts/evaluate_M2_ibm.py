@@ -150,10 +150,10 @@ def main():
         if classif_type == 'dnn':    
             # Normalize power spectrogram
             if std_norm:
-                x_classif = x - mean.T
-                x_classif /= (std + eps).T
+                x_norm = x - mean.T
+                x_norm /= (std + eps).T
 
-                y_hat_soft = classifier(x_classif) 
+                y_hat_soft = classifier(x_norm) 
             else:
                 y_hat_soft = classifier(x)   
             y_hat_hard = (y_hat_soft > 0.5).float()

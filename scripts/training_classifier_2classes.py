@@ -1,15 +1,15 @@
 import os
 import sys
 import torch
-import pickle
 import numpy as np
 from tqdm import tqdm
+import h5py as h5
 
 sys.path.append('.')
 
 from torch.utils.data import DataLoader
 from python.utils import count_parameters
-from python.data import SpectrogramLabeledFrames
+from python.data import HDF5SpectrogramLabeledFrames
 from python.models.models import Classifier2Classes
 from python.models.utils import binary_cross_entropy_2classes, f1_loss
 
@@ -19,21 +19,36 @@ from python.models.utils import binary_cross_entropy_2classes, f1_loss
 # dataset_size = 'subset'
 dataset_size = 'complete'
 
+dataset_name = 'CSR-1-WSJ-0'
+data_dir = 'export'
+labels = 'noisy_labels'
+# labels = 'noisy_vad_labels'
+
 # System 
 cuda = torch.cuda.is_available()
-cuda_device = "cuda:1"
+cuda_device = "cuda:0"
 device = torch.device(cuda_device if cuda else "cpu")
-num_workers = 8
+num_workers = 16
 pin_memory = True
 non_blocking = True
+rdcc_nbytes = 1024**2*400  # The number of bytes to use for the chunk cache
+                           # Default is 1 Mb
+                           # Here we are using 400Mb of chunk_cache_mem here
+rdcc_nslots = 1e5 # The number of slots in the cache's hash table
+                  # Default is 521
+                  # ideally 100 x number of chunks that can be fit in rdcc_nbytes
+                  # (see https://docs.h5py.org/en/stable/high/file.html?highlight=rdcc#chunk-cache)
 eps = 1e-8
 
 # Deep Generative Model
 x_dim = 513 
-y_dim = 1
+if labels == 'noisy_labels':
+    y_dim = 513
+if labels == 'noisy_vad_labels':
+    y_dim = 1
 h_dim = [128, 128]
 batch_norm=False
-std_norm_dataset = True
+std_norm = True
 
 # Training
 batch_size = 128
@@ -42,30 +57,18 @@ log_interval = 250
 start_epoch = 1
 end_epoch = 100
 
-model_name = 'classif_VAD_2classes_hdim_{:03d}_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], end_epoch)
+if labels == 'noisy_labels':
+    model_name = 'dummy_classif_IBM_2classes_normdataset_batchnorm_before_hdim_{:03d}_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], end_epoch)
+if labels == 'noisy_vad_labels':
+    model_name = 'dummy_classif_VAD_2classes_hdim_{:03d}_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], end_epoch)
 
 #####################################################################################################
 
 print('Load data')
-train_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_tr_s_noisy_frames.p'), 'rb'))
-valid_data = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_dt_05_noisy_frames.p'), 'rb'))
+output_h5_dir = os.path.join('data', dataset_size, data_dir, dataset_name + '_' + labels + '.h5')
 
-if std_norm_dataset:
-    # Normalize train_data, valid_data
-    mean = np.mean(train_data, axis=1)[:, None]
-    std = np.std(train_data, axis=1, ddof=1)[:, None]
-
-    train_data -= mean
-    valid_data -= mean
-
-    train_data /= (std + eps)
-    valid_data /= (std + eps)
-
-train_labels = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_tr_s_noisy_vad_labels.p'), 'rb'))
-valid_labels = pickle.load(open(os.path.join('data', dataset_size, 'pickle/si_dt_05_noisy_vad_labels.p'), 'rb'))
-
-train_dataset = SpectrogramLabeledFrames(train_data, train_labels)
-valid_dataset = SpectrogramLabeledFrames(valid_data, valid_labels)
+train_dataset = HDF5SpectrogramLabeledFrames(output_h5_dir=output_h5_dir, dataset_type='train', rdcc_nbytes=rdcc_nbytes, rdcc_nslots=rdcc_nslots)
+valid_dataset = HDF5SpectrogramLabeledFrames(output_h5_dir=output_h5_dir, dataset_type='validation', rdcc_nbytes=rdcc_nbytes, rdcc_nslots=rdcc_nslots)
 
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, sampler=None, 
                         batch_sampler=None, num_workers=num_workers, pin_memory=pin_memory, 
@@ -87,10 +90,21 @@ def main():
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
 
-    if std_norm_dataset:
-        # Save mean and variance
+    if std_norm:
+        print('Load mean and std')
+        # Normalize train_data, valid_data
+        # mean = np.mean(np.power(abs(train_data), 2), axis=1)[:, None]
+        # std = np.std(np.power(abs(train_data), 2), axis=1, ddof=1)[:, None]
+        with h5.File(output_h5_dir, 'r') as file:
+            mean = file['X_train_mean'][:]
+            std = file['X_train_std'][:]
+
+        # Save mean and std
         np.save(model_dir + '/' + 'trainset_mean.npy', mean)
         np.save(model_dir + '/' + 'trainset_std.npy', std)
+
+    mean = torch.tensor(mean).to(device)
+    std = torch.tensor(std).to(device)
 
     # Start log file
     file = open(model_dir + '/' +'output_batch.log','w') 
@@ -111,7 +125,15 @@ def main():
             if cuda:
                 x, y = x.to(device, non_blocking=non_blocking), y.to(device, non_blocking=non_blocking)
 
-            y_hat_soft = model(x)
+            # Normalize power spectrogram
+            if std_norm:
+                x_norm = x - mean.T
+                x_norm /= (std + eps).T
+
+                y_hat_soft = model(x_norm) 
+            else:
+                y_hat_soft = model(x)
+            
             loss = binary_cross_entropy_2classes(y_hat_soft[:,0], y_hat_soft[:,1], y, eps)
             loss.backward()
             optimizer.step()
@@ -156,9 +178,17 @@ def main():
                 if cuda:
                     x, y = x.to(device, non_blocking=non_blocking), y.to(device, non_blocking=non_blocking)
 
-                y_hat_soft = model(x)
-                loss = binary_cross_entropy_2classes(y_hat_soft[:,0], y_hat_soft[:,1], y, eps)
+                # Normalize power spectrogram
+                if std_norm:
+                    x_norm = x - mean.T
+                    x_norm /= (std + eps).T
 
+                    y_hat_soft = model(x_norm) 
+                else:
+                    y_hat_soft = model(x)
+
+                loss = binary_cross_entropy_2classes(y_hat_soft[:,0], y_hat_soft[:,1], y, eps)
+                
                 total_loss += loss.item()
                 y_hat_hard = (y_hat_soft[:,0] > 0.5).int()
                 f1_score, tp, tn, fp, fn = f1_loss(y_hat_hard=torch.flatten(y_hat_hard), y=torch.flatten(y), epsilon=eps)

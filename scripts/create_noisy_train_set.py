@@ -27,8 +27,8 @@ data_dir = 'export'
 speech_dataset_name = 'CSR-1-WSJ-0'
 noise_dataset_name = 'Demand'
 
-labels = 'noisy_labels'
-# labels = 'noisy_vad_labels'
+# labels = 'noisy_labels'
+labels = 'noisy_vad_labels'
 # labels = 'noisy_wiener_labels'
 
 input_speech_dir = os.path.join('data', dataset_size, 'raw/')

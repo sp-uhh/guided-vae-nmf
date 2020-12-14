@@ -1,7 +1,6 @@
 import os
 import sys
 import torch
-import pickle
 import numpy as np
 from tqdm import tqdm
 import h5py as h5
@@ -22,9 +21,7 @@ dataset_size = 'complete'
 
 dataset_name = 'CSR-1-WSJ-0'
 data_dir = 'export'
-# labels = 'noisy_labels'
-# labels = 'noisy_vad_labels'
-# labels = 'noisy_wiener_labels'
+labels = 'noisy_wiener_labels'
 
 # System 
 cuda = torch.cuda.is_available()
@@ -44,15 +41,8 @@ eps = 1e-8
 
 # Deep Generative Model
 x_dim = 513 
-if labels == 'noisy_labels':
-    y_dim = 513
-    h_dim = [128, 128]
-if labels == 'noisy_vad_labels':
-    y_dim = 1
-    h_dim = [128, 128]
-if labels == 'noisy_wiener_labels':
-    y_dim = 513
-    h_dim = [128, 128, 128, 128, 128]
+y_dim = 513
+h_dim = [128, 128, 128, 128, 128]
 batch_norm = False
 std_norm =True
 
@@ -63,16 +53,7 @@ log_interval = 250
 start_epoch = 1
 end_epoch = 200
 
-if labels == 'noisy_labels':
-    model_name = 'wsj0_snr-15_5_classif_normdataset_batchnorm_before_hdim_{:03d}_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], end_epoch)
-
-if labels == 'noisy_vad_labels':
-    # model_name = 'classif_VAD_normdataset_batchnorm_before_hdim_{:03d}_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], end_epoch)
-    #model_name = 'classif_VAD_batchnorm_before_hdim_{:03d}_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], end_epoch)
-    model_name = 'dummy_classif_VAD_qf0.999_normdataset_hdim_{:03d}_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], end_epoch)
-
-if labels == 'noisy_wiener_labels':
-    model_name = 'dummy_wiener_new_msaloss_normdataset_hdim_{:03d}_{:03d}_{:03d}_{:03d}_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], h_dim[2], h_dim[3], h_dim[4], end_epoch)
+model_name = 'dummy_wiener_new_msaloss_normdataset_hdim_{:03d}_{:03d}_{:03d}_{:03d}_{:03d}_end_epoch_{:03d}'.format(h_dim[0], h_dim[1], h_dim[2], h_dim[3], h_dim[4], end_epoch)
 
 #####################################################################################################
 
@@ -139,10 +120,10 @@ def main():
 
             # Normalize power spectrogram
             if std_norm:
-                x_wiener = x - mean.T
-                x_wiener /= (std + eps).T
+                x_norm = x - mean.T
+                x_norm /= (std + eps).T
 
-                y_hat_soft = model(x_wiener) 
+                y_hat_soft = model(x_norm) 
             else:
                 y_hat_soft = model(x)  
 
@@ -183,12 +164,12 @@ def main():
 
                 # Normalize power spectrogram
                 if std_norm:
-                    x_wiener = x - mean.T
-                    x_wiener /= (std + eps).T
+                    x_norm = x - mean.T
+                    x_norm /= (std + eps).T
 
-                    y_hat_soft = model(x_wiener) 
+                    y_hat_soft = model(x_norm) 
                 else:
-                    y_hat_soft = model(x)  
+                    y_hat_soft = model(x)
 
                 # loss = mean_square_error_signal(x=torch.sqrt(x), y=y, y_hat=y_hat_soft)
                 loss = mean_square_error_mask(y=y, y_hat=y_hat_soft)

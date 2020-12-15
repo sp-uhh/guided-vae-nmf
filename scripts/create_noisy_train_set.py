@@ -21,8 +21,8 @@ dataset_types = ['train', 'validation']
 # dataset_size = 'subset'
 dataset_size = 'complete'
 
-# data_dir = 'h5'
-data_dir = 'export'
+# output_data_dir = 'h5'
+output_data_dir = 'export'
 
 speech_dataset_name = 'CSR-1-WSJ-0'
 noise_dataset_name = 'Demand'
@@ -37,7 +37,7 @@ input_noise_dir = os.path.join('data/complete/raw/', noise_dataset_name + '/') #
 output_noise_dir = os.path.join('data/complete/processed/', noise_dataset_name + '/') # change the name of the subfolder in your computer
 
 output_wav_dir = os.path.join('data', dataset_size, 'processed/')
-output_dataset_file = os.path.join('data', dataset_size, data_dir, speech_dataset_name + '_' + labels + '.h5')
+output_dataset_file = os.path.join('data', dataset_size, output_data_dir, speech_dataset_name + '_' + labels + '.h5')
 
 ## STFT
 fs = int(16e3) # Sampling rate
@@ -210,7 +210,7 @@ def main():
             fx = f['X_' + dataset_type]
             fy = f['Y_' + dataset_type]
 
-            # Compute mean, std
+            # Compute mean, std of the train set
             if dataset_type == 'train':
                 # VAR = E[X**2] - E[X]**2
                 channels_sum, channels_squared_sum = 0., 0.

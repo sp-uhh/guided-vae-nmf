@@ -6,25 +6,28 @@ import soundfile as sf
 import os
 from tqdm import tqdm
 
-from python.dataset.csr1_wjs0_dataset import speech_list, write_dataset
 from python.dataset.qut_database import noise_list, preprocess_noise, noise_segment
 from python.utils import open_file
 
 
 # Parameters
 ## Dataset
+speech_dataset_name = 'CSR-1-WSJ-0'
+noise_dataset_name = 'qutnoise_databases'
+if speech_dataset_name == 'CSR-1-WSJ-0':
+    from python.dataset.csr1_wjs0_dataset import speech_list, write_dataset
+
 dataset_type = 'test'
 
-# dataset_size = 'subset'
-dataset_size = 'complete'
+dataset_size = 'subset'
+# dataset_size = 'complete'
+
+output_data_folder = 'processed'
 
 input_speech_dir = os.path.join('data', dataset_size, 'raw/')
-
-input_noise_dir = 'data/complete/raw/qutnoise_databases/' # change the name of the subfolder in your computer
-output_noise_dir = 'data/complete/processed/qutnoise_databases/' # change the name of the subfolder in your computer
-
-output_wav_dir = os.path.join('data', dataset_size, 'processed/')
-output_pickle_dir = os.path.join('data', dataset_size, 'pickle/')
+input_noise_dir = os.path.join('data/complete/raw', noise_dataset_name + '/') # change the name of the subfolder in your computer
+output_noise_dir = os.path.join('data/complete', output_data_folder, noise_dataset_name + '/') # change the name of the subfolder in your computer
+output_wav_dir = os.path.join('data', dataset_size, output_data_folder + '/')
 
 ## STFT
 fs = int(16e3) # Sampling rate
@@ -73,11 +76,9 @@ def main():
     
     # Create SNR list
     np.random.seed(0)
-    
     noise_types = ['cafe', 'home', 'street', 'car']
     #TODO: more noise index
-    noise_index = np.random.randint(len(noise_types), size=len(file_paths))
-    
+    noise_index = np.random.randint(len(noise_types), size=len(file_paths)) 
     snrs = [-5.0, 0.0, 5.0]
     snrs_index = np.random.randint(len(snrs), size=len(file_paths))
 
@@ -102,10 +103,7 @@ def main():
             noise_audios[noise_type] = noise_audio
 
 
-    # Create mixture
-    speeches = []
-    mixtures = []
-    noises = []
+    # Save all SNRs
     all_snr_dB = []
 
     # Loop over the speech files
@@ -142,14 +140,8 @@ def main():
         # Normalize by max of speech, noise, speech+noise
         norm = np.max(abs(np.concatenate([speech, noise, speech+noise])))
         mixture = (speech+noise) / norm
-        #mixture = (speech.copy()+noise.copy()) / norm
         speech /= norm
         noise /= norm
-
-        # Append processed audios
-        speeches.append(speech) 
-        noises.append(noise)
-        mixtures.append(mixture)
 
         # Save .wav files
         output_path = output_wav_dir + file_path
@@ -164,11 +156,6 @@ def main():
 
         # TODO: save SNR, level_s, level_n in a figure
     
-    #pickle.dump(audio_files, open(output_data_dir + '../data/pickle/clean_speech.p', 'wb'), protocol=4)
-    write_dataset(speeches, output_pickle_dir, dataset_type, 'speech-505')
-    write_dataset(noises, output_pickle_dir, dataset_type, 'noise-505')
-    write_dataset(mixtures, output_pickle_dir, dataset_type, 'mixture-505')
-
     # TODO: save SNR, level_s, level_n in 1 big csv
     write_dataset(all_snr_dB, output_wav_dir, dataset_type, 'snr_db')
     # TODO: save histogram of SNR

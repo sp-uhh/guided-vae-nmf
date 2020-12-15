@@ -27,6 +27,10 @@ dataset_type = 'test'
 dataset_size = 'subset'
 # dataset_size = 'complete'
 
+# Labels
+labels = 'labels'
+# labels = 'vad_labels'
+
 # System 
 cuda = torch.cuda.is_available()
 cuda_device = "cuda:0"
@@ -52,8 +56,6 @@ z_dim = 32
 h_dim = [128, 128]
 eps = 1e-8
 
-model_dir = os.path.join('models_wsj0', model_name + '.pt')
-
 ## Classifier
 # classif_type = 'dnn'
 classif_type = 'oracle'
@@ -68,16 +70,6 @@ if classif_type == 'oracle':
     classif_name = 'oracle_classif'
     # classif_name = 'ones_classif'
     # classif_name = 'zeros_classif'
-
-classif_dir = os.path.join('models_wsj0', classif_name + '.pt')
-
-if classif_type == 'dnn' and std_norm:
-    # Load mean and variance
-    mean = np.load(os.path.dirname(classif_dir) + '/' + 'trainset_mean.npy')
-    std = np.load(os.path.dirname(classif_dir) + '/' + 'trainset_std.npy')
-
-    mean = torch.tensor(mean).to(device)
-    std = torch.tensor(std).to(device)
 
 # NMF
 nmf_rank = 10
@@ -94,6 +86,17 @@ var_RW = 0.01
 input_speech_dir = os.path.join('data', dataset_size,'raw/')
 output_data_dir = os.path.join('data', dataset_size, 'models', model_name, classif_name + '/')
 processed_data_dir = os.path.join('data',dataset_size,'processed/')
+model_dir = os.path.join('models_wsj0', model_name + '.pt')
+classif_dir = os.path.join('models_wsj0', classif_name + '.pt')
+
+# Data normalization
+if classif_type == 'dnn' and std_norm:
+    # Load mean and variance
+    mean = np.load(os.path.dirname(classif_dir) + '/' + 'trainset_mean.npy')
+    std = np.load(os.path.dirname(classif_dir) + '/' + 'trainset_std.npy')
+
+    mean = torch.tensor(mean).to(device)
+    std = torch.tensor(std).to(device)
 
 #####################################################################################################
 

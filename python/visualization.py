@@ -70,9 +70,9 @@ def display_spectrogram(complex_spec,
         amplitude_spec = librosa.core.amplitude_to_db(amplitude_spec)
 
     # Trick to plot VAD
-    if amplitude_spec.ndim == 1:
+    if amplitude_spec.shape[0] == 1:
         freq_bins = 513
-        amplitude_spec = np.repeat(amplitude_spec[None], freq_bins, axis=0)
+        amplitude_spec = np.repeat(amplitude_spec, freq_bins, axis=0)
 
     # librosa.display.specshow params
     freq_bins, frames = amplitude_spec.shape

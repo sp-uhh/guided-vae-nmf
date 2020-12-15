@@ -12,14 +12,17 @@ from tqdm import tqdm
 import librosa
 from sklearn.metrics import f1_score
 
-from python.dataset.csr1_wjs0_dataset import speech_list, read_dataset
 from python.processing.stft import stft
-from python.processing.target import clean_speech_IBM
+from python.processing.target import clean_speech_VAD, clean_speech_IBM
 from python.models.models import Classifier
 #from utils import count_parameters
 
 from python.visualization import display_multiple_signals
 
+# Dataset
+dataset_name = 'CSR-1-WSJ-0'
+if dataset_name == 'CSR-1-WSJ-0':
+    from python.dataset.csr1_wjs0_dataset import speech_list, read_dataset
 
 # Settings
 dataset_type = 'test'
@@ -27,14 +30,14 @@ dataset_type = 'test'
 dataset_size = 'subset'
 #dataset_size = 'complete'
 
-input_speech_dir = os.path.join('data',dataset_size,'raw/')
-processed_data_dir = os.path.join('data',dataset_size,'processed/')
+# Labels
+# labels = 'labels'
+labels = 'vad_labels'
 
 # System 
 cuda = torch.cuda.is_available()
 cuda_device = "cuda:0"
 device = torch.device(cuda_device if cuda else "cpu")
-
 
 # Parameters
 ## STFT
@@ -44,53 +47,64 @@ hop_percent = 0.25  # hop size as a percentage of the window length
 win = 'hann' # type of window
 dtype = 'complex64'
 
-
 ## IBM
-quantile_fraction = 0.98
+quantile_fraction = 0.999
 quantile_weight = 0.999
-
-## Classifier
-# model_name = 'classif_normdataset_hdim_128_128_end_epoch_100/Classifier_epoch_096_vloss_57.53'
-# x_dim = 513 # frequency bins (spectrogram)
-# y_dim = 513
-# h_dim = [128, 128]
-# std_norm = True
-# eps = 1e-8
-
-# model_name = 'classif_hdim_128_128_end_epoch_100/Classifier_epoch_096_vloss_71.65'
-# x_dim = 513 # frequency bins (spectrogram)
-# y_dim = 513
-# h_dim = [128, 128]
-# std_norm = False
-# eps = 1e-8
-
-model_name = 'classif_batchnorm_before_hdim_128_128_end_epoch_100/Classifier_epoch_096_vloss_59.58'
-x_dim = 513 # frequency bins (spectrogram)
-y_dim = 513
-h_dim = [128, 128]
-batch_norm = True
-std_norm = False
-eps = 1e-8
-
-model_dir = os.path.join('models', model_name + '.pt')
-model_data_dir = 'data/' + dataset_size + '/models/' + model_name + '/'
-
-if std_norm:
-    # Load mean and variance
-    mean = np.load(os.path.dirname(model_dir) + '/' + 'trainset_mean.npy')
-    std = np.load(os.path.dirname(model_dir) + '/' + 'trainset_std.npy')
-
-    mean = torch.tensor(mean).to(device)
-    std = torch.tensor(std).to(device)
-
-# Output_data_dir
-output_data_dir = os.path.join('data', dataset_size, 'models', model_name + '/')
 
 ## Plot spectrograms
 vmin = -40 # in dB
 vmax = 20 # in dB
 xticks_sec = 2.0 # in seconds
 fontsize = 30
+
+## Classifier
+if labels == 'labels':
+    # classif_name = 'classif_normdataset_hdim_128_128_end_epoch_100/Classifier_epoch_096_vloss_57.53'
+    # x_dim = 513 # frequency bins (spectrogram)
+    # y_dim = 513
+    # h_dim_cl = [128, 128]
+    # std_norm = True
+    # eps = 1e-8
+
+    # classif_name = 'classif_hdim_128_128_end_epoch_100/Classifier_epoch_096_vloss_71.65'
+    # x_dim = 513 # frequency bins (spectrogram)
+    # y_dim = 513
+    # h_dim_cl = [128, 128]
+    # std_norm = False
+    # eps = 1e-8
+
+    classif_name = 'classif_batchnorm_before_hdim_128_128_end_epoch_100/Classifier_epoch_096_vloss_59.58'
+    x_dim = 513 # frequency bins (spectrogram)
+    y_dim = 513
+    h_dim_cl = [128, 128]
+    batch_norm = True
+    std_norm = False
+    eps = 1e-8
+
+if labels == 'vad_labels':
+    classif_name = 'classif_VAD_normdataset_hdim_128_128_end_epoch_100/Classifier_epoch_096_vloss_0.21'
+    x_dim = 513 # frequency bins (spectrogram)
+    y_dim = 1
+    h_dim_cl = [128, 128]
+    std_norm = True
+    batch_norm = False
+    eps = 1e-8
+
+# Data directories
+input_speech_dir = os.path.join('data',dataset_size,'raw/')
+processed_data_dir = os.path.join('data',dataset_size,'processed/')
+classif_dir = os.path.join('models', classif_name + '.pt')
+classif_data_dir = 'data/' + dataset_size + '/models/' + classif_name + '/'
+output_data_dir = os.path.join('data', dataset_size, 'models', classif_name + '/')
+
+# Data normalization
+if std_norm:
+    # Load mean and variance
+    mean = np.load(os.path.dirname(classif_dir) + '/' + 'trainset_mean.npy')
+    std = np.load(os.path.dirname(classif_dir) + '/' + 'trainset_std.npy')
+
+    mean = torch.tensor(mean).to(device)
+    std = torch.tensor(std).to(device)
 
 def main():
     # Load input SNR
@@ -108,12 +122,12 @@ def main():
     file_paths = speech_list(input_speech_dir=input_speech_dir,
                              dataset_type=dataset_type)
 
-    model = Classifier([x_dim, h_dim, y_dim], batch_norm=batch_norm)
-    model.load_state_dict(torch.load(model_dir, map_location=cuda_device))
-    if cuda: model = model.cuda()
+    classifier = Classifier([x_dim, h_dim_cl, y_dim], batch_norm=batch_norm)
+    classifier.load_state_dict(torch.load(classif_dir, map_location=cuda_device))
+    if cuda: classifier = classifier.cuda()
 
-    model.eval()
-    for param in model.parameters():
+    classifier.eval()
+    for param in classifier.parameters():
         param.requires_grad = False
 
     # Create file list
@@ -150,8 +164,10 @@ def main():
             x /= (std + eps).T
 
         # Classify
-        y_hat_soft = model(x)
+        y_hat_soft = classifier(x)
         y_hat_hard = (y_hat_soft > 0.5).int()
+        y_hat_hard = y_hat_hard.cpu().numpy()
+        y_hat_hard = y_hat_hard.T  # Transpose to match librosa.display
 
         # plots of target / estimation
         s_tf = stft(s_t,
@@ -161,27 +177,30 @@ def main():
                  hop_percent=hop_percent,
                  dtype=dtype) # shape = (freq_bins, frames)
 
-        # binary mask
-        s_ibm = clean_speech_IBM(s_tf,
-                                quantile_fraction=quantile_fraction,
-                                quantile_weight=quantile_weight)        
+        if labels == 'labels':
+            # binary mask
+            target = clean_speech_IBM(s_tf,
+                                    quantile_fraction=quantile_fraction,
+                                    quantile_weight=quantile_weight)        
+
+        if labels == 'vad_labels':
+            # vad
+            target = clean_speech_VAD(s_tf,
+                                    quantile_fraction=quantile_fraction,
+                                    quantile_weight=quantile_weight)
 
         # Transpose to match librosa.display
-        y_hat_hard = y_hat_hard.T
         x_tf = x_tf.T
 
-        # Transform to numpy.array
-        y_hat_hard = y_hat_hard.cpu().numpy()
-
         # F1-score
-        f1score_s_hat = f1_score(s_ibm.flatten(), y_hat_hard.flatten(), average="binary")
+        f1score_s_hat = f1_score(target.flatten(), y_hat_hard.flatten(), average="binary")
 
         ## mixture signal (wav + spectro)
         ## target signal (wav + spectro + mask)
         ## estimated signal (wav + spectro + mask)
         signal_list = [
             [x_t, x_tf, None], # mixture: (waveform, tf_signal, no mask)
-            [s_t, s_tf, s_ibm], # clean speech
+            [s_t, s_tf, target], # clean speech
             [None, None, y_hat_hard]
             #[None, None, y_hat_soft]
         ]
@@ -198,7 +217,7 @@ def main():
         fig.suptitle(title, fontsize=40)
 
         # Save figure
-        output_path = model_data_dir + file_path
+        output_path = classif_data_dir + file_path
         output_path = os.path.splitext(output_path)[0]
 
         if not os.path.exists(os.path.dirname(output_path)):

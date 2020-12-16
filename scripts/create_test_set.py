@@ -6,7 +6,6 @@ import soundfile as sf
 import os
 from tqdm import tqdm
 
-from python.dataset.qut_database import noise_list, preprocess_noise, noise_segment
 from python.utils import open_file
 
 
@@ -14,8 +13,11 @@ from python.utils import open_file
 ## Dataset
 speech_dataset_name = 'CSR-1-WSJ-0'
 noise_dataset_name = 'qutnoise_databases'
+
 if speech_dataset_name == 'CSR-1-WSJ-0':
     from python.dataset.csr1_wjs0_dataset import speech_list, write_dataset
+if noise_dataset_name == 'qutnoise_databases':
+    from python.dataset.qut_database import noise_list, preprocess_noise, noise_segment
 
 dataset_type = 'test'
 

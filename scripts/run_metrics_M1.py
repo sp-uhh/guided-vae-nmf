@@ -7,15 +7,13 @@ import torch
 import soundfile as sf
 import librosa
 import json
-from tqdm import tqdm
 import matplotlib.pyplot as plt
-import concurrent.futures
+import concurrent.futures # for multiprocessing
 import time
 
 from python.processing.stft import stft, istft
-from python.processing.target import clean_speech_IBM
 
-from python.metrics import energy_ratios, mean_confidence_interval
+from python.metrics import energy_ratios, compute_stats
 from pystoi import stoi
 from pesq import pesq
 #from uhh_sp.evaluation import polqa
@@ -34,9 +32,6 @@ dataset_type = 'test'
 dataset_size = 'complete'
 
 # Parameters
-# ## Silence removal
-# top_db = 40
-
 ## STFT
 fs = int(16e3) # Sampling rate
 wlen_sec = 64e-3 # window length in seconds
@@ -45,17 +40,6 @@ win = 'hann' # type of window
 dtype = 'complex64'
 #eps = np.finfo(float).eps # machine epsilon
 eps = 1e-8
-
-## Ideal binary mask
-quantile_fraction = 0.98
-quantile_weight = 0.999
-
-## Hyperparameters
-# M1
-#model_name = 'dummy_M2_10_epoch_010_vloss_108.79'
-# model_name = 'dummy_M2_alpha_5.0_epoch_100_vloss_466.72'
-# model_name = 'M1_hdim_128_128_zdim_032_end_epoch_200/M1_epoch_085_vloss_479.69'
-model_name = 'M1_hdim_128_128_zdim_032_end_epoch_200/M1_epoch_124_vloss_475.95'
 
 ## Plot spectrograms
 vmin = -40 # in dB
@@ -66,10 +50,17 @@ fontsize = 30
 ## Stats
 confidence = 0.95 # confidence interval
 
+# Model
+#model_name = 'dummy_M2_10_epoch_010_vloss_108.79'
+# model_name = 'dummy_M2_alpha_5.0_epoch_100_vloss_466.72'
+# model_name = 'M1_hdim_128_128_zdim_032_end_epoch_200/M1_epoch_085_vloss_479.69'
+model_name = 'M1_hdim_128_128_zdim_032_end_epoch_200/M1_epoch_124_vloss_475.95'
+
 # Data directories
 input_speech_dir = os.path.join('data',dataset_size,'raw/')
 processed_data_dir = os.path.join('data',dataset_size,'processed/')
-model_data_dir = 'data/' + dataset_size + '/models_wsj0/' + model_name + '/'
+model_data_dir = os.path.join('data', dataset_size, 'models_wsj0', model_name + '/') # Directory where estimated data is stored
+
 
 def compute_metrics_utt(file_path):
     # print(file_path)
@@ -107,10 +98,6 @@ def compute_metrics_utt(file_path):
                 hop_percent=hop_percent,
                 dtype=dtype) # shape = (freq_bins, frames)
 
-    y = clean_speech_IBM(s_tf,
-                            quantile_fraction=quantile_fraction,
-                            quantile_weight=quantile_weight)
-
     # plots of target / estimation
     # TF representation
     x_tf = stft(x_t,
@@ -132,7 +119,7 @@ def compute_metrics_utt(file_path):
     # ## estimated signal (wav + spectro + mask)
     # signal_list = [
     #     [x_t, x_tf, None], # mixture: (waveform, tf_signal, no mask)
-    #     [s_t, s_tf, y], # clean speech
+    #     [s_t, s_tf, None], # clean speech
     #     [s_hat_t, s_hat_tf, None]
     # ]
     # fig = display_multiple_signals(signal_list,
@@ -160,47 +147,6 @@ def compute_metrics_utt(file_path):
     metrics = [si_sdr, si_sir, si_sar, stoi_s_hat, pesq_s_hat]
     return metrics
 
-
-def compute_stats(all_metrics, all_snr_db):
-
-    # Dictionary with all metrics
-    metrics = {}
-    for id, key in enumerate(['SI-SDR', 'SI-SIR', 'SI-SAR', 'STOI', 'PESQ']):
-        metrics[key] = [j[id] for j in all_metrics]
-
-    # Confidence interval
-    stats = {}
-
-    # Print the names of the columns. 
-    print ("{:<10} {:<10} {:<10}".format('METRIC', 'AVERAGE', 'CONF. INT.')) 
-    for key, metric in metrics.items():
-        m, h = mean_confidence_interval(metric, confidence=confidence)
-        stats[key] = {'avg': m, '+/-': h}
-        print ("{:<10} {:<10} {:<10}".format(key, m, h))
-    print('\n')
-
-    # Save stats (si_sdr, si_sar, etc. )
-    with open(model_data_dir + 'stats.json', 'w') as f:
-        json.dump(stats, f)
-
-    # Metrics by input SNR
-    for snr_db in np.unique(all_snr_db):
-        stats = {}
-
-        print('Input SNR = {:.2f}'.format(snr_db))
-        # Print the names of the columns. 
-        print ("{:<10} {:<10} {:<10}".format('METRIC', 'AVERAGE', 'CONF. INT.')) 
-        for key, metric in metrics.items():
-            subset_metric = np.array(metric)[np.where(all_snr_db == snr_db)]
-            m, h = mean_confidence_interval(subset_metric, confidence=confidence)
-            stats[key] = {'avg': m, '+/-': h}
-            print ("{:<10} {:<10} {:<10}".format(key, m, h))
-        print('\n')
-
-        # Save stats (si_sdr, si_sar, etc. )
-        with open(model_data_dir + 'stats_{:g}.json'.format(snr_db), 'w') as f:
-            json.dump(stats, f)
-
 def main():
     # Load input SNR
     all_snr_db = read_dataset(processed_data_dir, dataset_type, 'snr_db')
@@ -220,9 +166,14 @@ def main():
 
     # Transform generator to list
     all_metrics = list(all_metrics)
+    metrics_keys = ['SI-SDR', 'SI-SIR', 'SI-SAR', 'STOI', 'PESQ']
 
-    # Compute stats
-    compute_stats(all_metrics, all_snr_db)
+    # Compute & save stats
+    compute_stats(metrics_keys=metrics_keys,
+                  all_metrics=all_metrics,
+                  all_snr_db=all_snr_db,
+                  model_data_dir=model_data_dir,
+                  confidence=confidence)
 
 if __name__ == '__main__':
     main()

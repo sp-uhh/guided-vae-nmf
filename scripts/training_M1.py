@@ -18,14 +18,14 @@ from python.data import SpectrogramFrames
 
 # Settings
 ## Dataset
-#dataset_size = 'subset'
-dataset_size = 'complete'
+dataset_size = 'subset'
+#dataset_size = 'complete'
 
 # eps to fix (not necessarily 1e-8)
 eps = 1e-8
 
 cuda = torch.cuda.is_available()
-num_workers = 8
+num_workers = 0
 device = torch.device("cuda:1" if cuda else "cpu")
 pin_memory = True
 non_blocking = True
@@ -36,7 +36,7 @@ z_dim = 32
 h_dim = [128]
 
 ## Training
-batch_size = 128
+batch_size = 16
 learning_rate = 1e-3
 log_interval = 1
 start_epoch = 1
@@ -68,7 +68,7 @@ def main():
     if cuda: model = model.to(device, non_blocking=non_blocking)
 
     # Create model folder
-    model_dir = os.path.join('models', 'M1_KLv3_eps1e-8_h{:03d}_z{:03d}_end_epoch_{:03d}'.format(h_dim[0], z_dim, end_epoch))
+    model_dir = os.path.join('models', 'M1_KLv4_eps1e-8_h{:03d}_z{:03d}_end_epoch_{:03d}'.format(h_dim[0], z_dim, end_epoch))
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
 

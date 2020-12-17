@@ -61,7 +61,8 @@ def binary_cross_entropy(r, x, eps):
 def ikatura_saito_divergence(r, x, eps):
     #return torch.sum((x + eps)/(r + eps) - torch.log((x + eps)/(r+ eps)) - 1, dim=-1)
     #return torch.sum((x + eps)/(r + eps) - torch.log(x + eps) + torch.log(r+ eps) - 1, dim=-1)
-    return torch.sum(x/r.exp() - torch.log(x + eps) + r - 1, dim=-1)
+    return torch.sum(x/r - torch.log(x + eps) + torch.log(r) - 1, dim=-1)
+    #return torch.sum(x/r.exp() - torch.log(x + eps) + r - 1, dim=-1)
 
 def kl_divergence(r, x, eps):
     return torch.sum(r.exp() * (r - torch.log(x + eps)) + x - r.exp(), dim=-1)

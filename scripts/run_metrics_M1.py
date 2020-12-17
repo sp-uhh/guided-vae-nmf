@@ -19,7 +19,6 @@ from python.metrics import energy_ratios, mean_confidence_interval
 from pystoi import stoi
 from pesq import pesq
 #from uhh_sp.evaluation import polqa
-from sklearn.metrics import f1_score
 
 from python.visualization import display_multiple_signals
 
@@ -73,7 +72,7 @@ processed_data_dir = os.path.join('data',dataset_size,'processed/')
 model_data_dir = 'data/' + dataset_size + '/models_wsj0/' + model_name + '/'
 
 def compute_metrics_utt(file_path):
-    print(file_path)
+    # print(file_path)
     # Read files
     s_t, fs_s = sf.read(processed_data_dir + os.path.splitext(file_path)[0] + '_s.wav') # clean speech
     n_t, fs_n = sf.read(processed_data_dir + os.path.splitext(file_path)[0] + '_n.wav') # noise
@@ -158,38 +157,49 @@ def compute_metrics_utt(file_path):
     # # Clear figure
     # plt.close()
 
+    metrics = [si_sdr, si_sir, si_sar, stoi_s_hat, pesq_s_hat]
+    return metrics
 
-# stats = {}
 
-# # Print the names of the columns. 
-# print ("{:<10} {:<10} {:<10}".format('METRIC', 'AVERAGE', 'CONF. INT.')) 
-# for key, metric in metrics.items():
-#     m, h = mean_confidence_interval(metric, confidence=confidence)
-#     stats[key] = {'avg': m, '+/-': h}
-#     print ("{:<10} {:<10} {:<10}".format(key, m, h))
-# print('\n')
+def compute_stats(all_metrics, all_snr_db):
 
-# # Save stats (si_sdr, si_sar, etc. )
-# with open(model_data_dir + 'stats.json', 'w') as f:
-#     json.dump(stats, f)
+    # Dictionary with all metrics
+    metrics = {}
+    for id, key in enumerate(['SI-SDR', 'SI-SIR', 'SI-SAR', 'STOI', 'PESQ']):
+        metrics[key] = [j[id] for j in all_metrics]
 
-# # Metrics by input SNR
-# for snr_db in np.unique(all_snr_db):
-#     stats = {}
+    # Confidence interval
+    stats = {}
 
-#     print('Input SNR = {:.2f}'.format(snr_db))
-#     # Print the names of the columns. 
-#     print ("{:<10} {:<10} {:<10}".format('METRIC', 'AVERAGE', 'CONF. INT.')) 
-#     for key, metric in metrics.items():
-#         subset_metric = np.array(metric)[np.where(all_snr_db == snr_db)]
-#         m, h = mean_confidence_interval(subset_metric, confidence=confidence)
-#         stats[key] = {'avg': m, '+/-': h}
-#         print ("{:<10} {:<10} {:<10}".format(key, m, h))
-#     print('\n')
+    # Print the names of the columns. 
+    print ("{:<10} {:<10} {:<10}".format('METRIC', 'AVERAGE', 'CONF. INT.')) 
+    for key, metric in metrics.items():
+        m, h = mean_confidence_interval(metric, confidence=confidence)
+        stats[key] = {'avg': m, '+/-': h}
+        print ("{:<10} {:<10} {:<10}".format(key, m, h))
+    print('\n')
 
-#     # Save stats (si_sdr, si_sar, etc. )
-#     with open(model_data_dir + 'stats_{:g}.json'.format(snr_db), 'w') as f:
-#         json.dump(stats, f)
+    # Save stats (si_sdr, si_sar, etc. )
+    with open(model_data_dir + 'stats.json', 'w') as f:
+        json.dump(stats, f)
+
+    # Metrics by input SNR
+    for snr_db in np.unique(all_snr_db):
+        stats = {}
+
+        print('Input SNR = {:.2f}'.format(snr_db))
+        # Print the names of the columns. 
+        print ("{:<10} {:<10} {:<10}".format('METRIC', 'AVERAGE', 'CONF. INT.')) 
+        for key, metric in metrics.items():
+            subset_metric = np.array(metric)[np.where(all_snr_db == snr_db)]
+            m, h = mean_confidence_interval(subset_metric, confidence=confidence)
+            stats[key] = {'avg': m, '+/-': h}
+            print ("{:<10} {:<10} {:<10}".format(key, m, h))
+        print('\n')
+
+        # Save stats (si_sdr, si_sar, etc. )
+        with open(model_data_dir + 'stats_{:g}.json'.format(snr_db), 'w') as f:
+            json.dump(stats, f)
 
 def main():
     # Load input SNR
@@ -200,26 +210,19 @@ def main():
     file_paths = speech_list(input_speech_dir=input_speech_dir,
                                 dataset_type=dataset_type)
 
-    # 1 list per metric
-    all_si_sdr = []
-    all_si_sir = []
-    all_si_sar = []
-    all_stoi = []
-    all_pesq = []
-    all_polqa = []
-    all_f1score = []
-
     t1 = time.perf_counter()
 
     with concurrent.futures.ProcessPoolExecutor() as executor:
-        results = executor.map(compute_metrics_utt, file_paths)
-        #TODO: return all metrics, in order to compute statistics
-    # for file_path in file_paths:
-    #     compute_metrics_utt(file_path)
-
+        all_metrics = executor.map(compute_metrics_utt, file_paths)
+    
     t2 = time.perf_counter()
     print(f'Finished in {t2 - t1} seconds')
 
+    # Transform generator to list
+    all_metrics = list(all_metrics)
+
+    # Compute stats
+    compute_stats(all_metrics, all_snr_db)
+
 if __name__ == '__main__':
     main()
-    # compute_stats()

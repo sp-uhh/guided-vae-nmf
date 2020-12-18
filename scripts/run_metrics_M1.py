@@ -158,7 +158,7 @@ def main():
 
     t1 = time.perf_counter()
 
-    with concurrent.futures.ProcessPoolExecutor() as executor:
+    with concurrent.futures.ProcessPoolExecutor(max_workers=None) as executor:
         all_metrics = executor.map(compute_metrics_utt, file_paths)
     
     t2 = time.perf_counter()

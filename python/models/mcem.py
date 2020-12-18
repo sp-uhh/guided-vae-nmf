@@ -11,18 +11,20 @@ class EM:
     inherited.
     """
     
-    def __init__(self, X, W, H, g, vae, niter=100, device='cpu'):
-        
+    # def __init__(self, X, W, H, g, vae, niter=100, device='cpu'):
+    def __init__(self, vae, niter=100, device='cpu'):
+    
         self.device = device
         
-        self.X = X.T # mixture STFT, shape (F,N)
-        self.X_abs_2 = self.np2tensor(np.abs(X.T)**2).to(self.device) # mixture power spectrogram, shape (F, N)
-        self.W = self.np2tensor(W).to(self.device) # NMF dictionary matrix, shape (F, K)
-        self.H = self.np2tensor(H).to(self.device) # NMF activation matrix, shape (K, N)
-        self.compute_Vb() # noise variance, shape (F, N)
+        # self.X = X.T # mixture STFT, shape (F,N)
+        # self.X_abs_2 = self.np2tensor(np.abs(X.T)**2).to(self.device) # mixture power spectrogram, shape (F, N)
+        # self.W = self.np2tensor(W).to(self.device) # NMF dictionary matrix, shape (F, K)
+        # self.H = self.np2tensor(H).to(self.device) # NMF activation matrix, shape (K, N)
+        # self.compute_Vb() # noise variance, shape (F, N)
         self.vae = vae # variational autoencoder 
         self.niter = niter # number of iterations
-        self.g = g # gain parameters, shape (, N)
+        # self.g = g # gain parameters, shape (, N)
+        # self.g = self.np2tensor(g).to(self.device) # gain parameters, shape (, N)
         self.Vs = None # speech variance, shape (R, F, N), where R corresponds 
         # to different draws of the latent variables fed as input to the vae
         # decoder
@@ -30,6 +32,20 @@ class EM:
         # shape (R, F, N)
         self.Vx = None # mixture variance, shape (R, F, N)          
     
+    def weight_reset(self, X, W, H, g):
+        self.X = X.T # mixture STFT, shape (F,N)
+        self.X_abs_2 = self.np2tensor(np.abs(X.T)**2).to(self.device) # mixture power spectrogram, shape (F, N)
+        self.W = self.np2tensor(W).to(self.device) # NMF dictionary matrix, shape (F, K)
+        self.H = self.np2tensor(H).to(self.device) # NMF activation matrix, shape (K, N)
+        self.compute_Vb() # noise variance, shape (F, N)
+        self.g = self.np2tensor(g).to(self.device) # gain parameters, shape (, N)
+        self.Vs = None # speech variance, shape (R, F, N), where R corresponds 
+        # to different draws of the latent variables fed as input to the vae
+        # decoder
+        self.Vs_scaled = None # speech variance multiplied by gain, 
+        # shape (R, F, N)
+        self.Vx = None # mixture variance, shape (R, F, N)          
+
     def np2tensor(self, x):
         y = torch.from_numpy(x.astype(np.float32))
         return y
@@ -162,6 +178,7 @@ class MCEM_M2(EM):
         if type(vae).__name__ == 'RVAE':
             raise NameError('MCEM algorithm only valid for FFNN VAE')
         
+        _, Z, _ = self.vae.encoder(x)
         self.Z = torch.t(Z) # Last draw of the latent variables, shape (L, N)
         self.y = torch.t(y)  # label
         self.nsamples_E_step = nsamples_E_step
@@ -310,16 +327,18 @@ class MCEM_M2(EM):
 
 class MCEM_M1(EM):
     
-    def __init__(self, X, W, H, g, Z, vae, niter, device, nsamples_E_step=10, 
+    # def __init__(self, X, W, H, g, Z, vae, niter, device, nsamples_E_step=10, 
+    def __init__(self, vae, niter, device, nsamples_E_step=10, 
                  burnin_E_step=30, nsamples_WF=25, burnin_WF=75, var_RW=0.01):
         
-        super().__init__(X=X, W=W, H=H, g=g, vae=vae, niter=niter, 
-             device=device)
+        # super().__init__(X=X, W=W, H=H, g=g, vae=vae, niter=niter, 
+        super().__init__(vae=vae, niter=niter, device=device)
 
         if type(vae).__name__ == 'RVAE':
             raise NameError('MCEM algorithm only valid for FFNN VAE')
         
-        self.Z = torch.t(Z) # Last draw of the latent variables, shape (L, N)
+        # _, Z, _ = self.vae.encoder(self.X_abs_2)
+        # self.Z = torch.t(Z) # Last draw of the latent variables, shape (L, N)
         self.nsamples_E_step = nsamples_E_step
         self.burnin_E_step = burnin_E_step
         self.nsamples_WF = nsamples_WF
@@ -328,11 +347,15 @@ class MCEM_M1(EM):
         
         # mixture power spectrogram as tensor, shape (F, N)
         #self.X_abs_2_t = self.np2tensor(self.X_abs_2).to(self.device) 
-        self.X_abs_2_t = self.X_abs_2.clone()
+        # self.X_abs_2_t = self.X_abs_2.clone()
 
-        self.vae.eval() # vae in eval mode
+        # self.vae.eval() # vae in eval mode
         
-        
+    def weight_reset(self, X, W, H, g):
+        super().weight_reset(X=X, W=W, H=H, g=g)
+        _, Z, _ = self.vae.encoder(torch.t(self.X_abs_2))
+        self.Z = torch.t(Z) # Last draw of the latent variables, shape (L, N)
+        self.X_abs_2_t = self.X_abs_2.clone()
         
     def sample_posterior(self, Z, y, nsamples=10, burnin=30):
         # Metropolis-Hastings

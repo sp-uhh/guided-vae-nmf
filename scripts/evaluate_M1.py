@@ -9,6 +9,9 @@ from torch import nn
 import time
 import soundfile as sf
 from tqdm import tqdm
+import torch.multiprocessing as mp
+# from torch.nn.parallel import DataParallel as DP
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 from python.dataset.csr1_wjs0_dataset import speech_list
 from python.processing.stft import stft, istft
@@ -22,8 +25,8 @@ from python.models.models import VariationalAutoencoder
 # Settings
 dataset_type = 'test'
 
-# dataset_size = 'subset'
-dataset_size = 'complete'
+dataset_size = 'subset'
+# dataset_size = 'complete'
 
 input_speech_dir = os.path.join('data',dataset_size,'raw/')
 #processed_data_dir = os.path.joint('data',dataset_size,'processed/')
@@ -110,17 +113,143 @@ output_data_dir = os.path.join('data', dataset_size, 'models', model_name + '/')
 processed_data_dir = os.path.join('data',dataset_size,'processed/')
 
 
+def process_utt(file_path, model, mcem, device):
+    x_t, fs_x = sf.read(processed_data_dir + os.path.splitext(file_path)[0] + '_x.wav') # mixture
+    T_orig = len(x_t)
+
+    # TF reprepsentation
+    # Input should be (frames, freq_bibs)
+    x_tf = stft(x_t,
+                fs=fs,
+                wlen_sec=wlen_sec,
+                win=win,
+                hop_percent=hop_percent,
+                dtype=dtype)
+                    
+    # Transpose to match PyTorch
+    x_tf = x_tf.T # (frames, freq_bins)
+    
+    # Power spectrogram (transpose)
+    # x = torch.tensor(np.power(np.abs(x_tf), 2)).to(device)
+
+    # Encode
+    # _, Z_init, _ = model.encoder(x)
+    # _, Z_init, _ = model.module.encoder(x)
+
+    # MCEM
+    if use_mcem_julius and not use_mcem_simon:
+
+        # NMF parameters are initialized inside MCEM
+        mcem = mcem_julius.MCEM_M1(X=x_tf.T,
+                                Z=Z_init.T,
+                                model=model,
+                                device=device,
+                                niter_MCEM=niter,
+                                niter_MH=nsamples_E_step+burnin_E_step,
+                                burnin=burnin_E_step,
+                                var_MH=var_RW,
+                                NMF_rank=nmf_rank,
+                                eps=eps)
+        
+        t0 = time.time()
+
+        mcem.run()
+        mcem.separate(niter_MH=nsamples_WF+burnin_WF, burnin=burnin_WF)
+
+        elapsed = time.time() - t0
+        print("elapsed time: %.4f s" % (elapsed))
+
+    elif not use_mcem_julius and use_mcem_simon:
+
+        # NMF parameters are initialized outside MCEM
+        N, F = x_tf.shape
+        W_init = np.maximum(np.random.rand(F,nmf_rank), eps, dtype='float32')
+        H_init = np.maximum(np.random.rand(nmf_rank, N), eps, dtype='float32')
+        # g_init = torch.ones(N).to(device) # float32 by default
+        g_init = np.ones(N, dtype='float32')
+
+        # mcem = MCEM_M1(X=x_tf,
+        #                 W=W_init,
+        #                 H=H_init,
+        #                 g=g_init,
+        #                 Z=Z_init,
+        #                 vae=model, device=device, niter=niter,
+        #                 nsamples_E_step=nsamples_E_step,
+        #                 burnin_E_step=burnin_E_step, nsamples_WF=nsamples_WF, 
+        #                 burnin_WF=burnin_WF, var_RW=var_RW)
+        
+        mcem.weight_reset(X=x_tf,
+                          W=W_init,
+                          H=H_init,
+                          g=g_init)
+        
+        #%% Run speech enhancement algorithm
+        cost = mcem.run()
+    else:
+        ValueError('You must set use_mcem_julius OR use_mcem_simon to True.')
+
+    # Estimated sources
+    S_hat = mcem.S_hat #+ np.finfo(np.float32).eps
+    N_hat = mcem.N_hat #+ np.finfo(np.float32).eps
+
+    # iSTFT
+    s_hat = istft(S_hat,
+                fs=fs,
+                wlen_sec=wlen_sec,
+                win=win,
+                hop_percent=hop_percent,
+                max_len=T_orig)
+
+    n_hat = istft(N_hat,
+        fs=fs,
+        wlen_sec=wlen_sec,
+        win=win,
+        hop_percent=hop_percent,
+        max_len=T_orig)
+
+    # # Save .wav files
+    # output_path = output_data_dir + file_path
+    # output_path = os.path.splitext(output_path)[0]
+
+    # if not os.path.exists(os.path.dirname(output_path)):
+    #     os.makedirs(os.path.dirname(output_path))
+    
+    # sf.write(output_path + '_s_est.wav', s_hat, fs)
+    # sf.write(output_path + '_n_est.wav', n_hat, fs)
+
+    # end_file = time.time()
+    # elapsed.append(end_file - start_file)
+    # etc = (len(file_paths)-i-1)*np.mean(elapsed)
+
+    # end = time.time()
+    # print('- File {}/{}   '.format(len(file_paths), len(file_paths)))
+    # print('                     total time: {:6.1f} s'.format(end-start))
+
 def main():
-    cuda_device = "cuda:1"
+    #TODO: insert Pool Process here
+    #TODO: count the number of GPUs, then use torch.multiprocessing.Process or Pool
+    # n_gpus = torch.cuda.device_count()
+    # with torch.multiprocessing.Pool(processes=torch.cuda.device_count()) as pool:
+
+    cuda_device = "cuda:0"
     device = torch.device(cuda_device if cuda else "cpu")
     file = open('output.log','w') 
 
     print('Torch version: {}'.format(torch.__version__))
-    print('Device: %s' % (device))
-    if torch.cuda.device_count() >= 1: print("Number GPUs: ", torch.cuda.device_count())
+    # print('Device: %s' % (device))
+    # if torch.cuda.device_count() >= 1: print("Number GPUs: ", torch.cuda.device_count())
 
     model = VariationalAutoencoder([x_dim, z_dim, h_dim])
-    model.load_state_dict(torch.load(os.path.join('models', model_name + '.pt'), map_location=cuda_device))
+    model.load_state_dict(torch.load(os.path.join('models_wsj0', model_name + '.pt'), map_location=cuda_device))
+
+    mcem = MCEM_M1(vae=model, device=device, niter=niter,
+                   nsamples_E_step=nsamples_E_step,
+                   burnin_E_step=burnin_E_step, nsamples_WF=nsamples_WF, 
+                   burnin_WF=burnin_WF, var_RW=var_RW)
+
+    # if torch.cuda.device_count() > 1:
+    #     print("Let's use", torch.cuda.device_count(), "GPUs!")
+    #     model = torch.nn.DataParallel(model)
     if cuda: model = model.to(device)
 
     model.eval()
@@ -131,120 +260,19 @@ def main():
     file_paths = speech_list(input_speech_dir=input_speech_dir,
                              dataset_type=dataset_type)
 
-    # s_hat_list = []
-    # n_hat_list = []
-    print('Start evaluation')
-    start = time.time()
-    elapsed = []
+    # print('Start evaluation')
+    # start = time.time()
+    # elapsed = []
+
+    t1 = time.perf_counter()
     
     for i, file_path in tqdm(enumerate(file_paths)):   
-        start_file = time.time()
-        print('- File {}/{}'.format(i+1,len(file_paths)), end='\r')
-
-
-        x_t, fs_x = sf.read(processed_data_dir + os.path.splitext(file_path)[0] + '_x.wav') # mixture
-        T_orig = len(x_t)
-
-        # TF reprepsentation
-        # Input should be (frames, freq_bibs)
-        x_tf = stft(x_t,
-                 fs=fs,
-                 wlen_sec=wlen_sec,
-                 win=win,
-                 hop_percent=hop_percent,
-                 dtype=dtype)
-                        
-        # Transpose to match PyTorch
-        x_tf = x_tf.T # (frames, freq_bins)
-        
-        # Power spectrogram (transpose)
-        x = torch.tensor(np.power(np.abs(x_tf), 2)).to(device)
-
-        # Encode
-        _, Z_init, _ = model.encoder(x)
-
-        # MCEM
-        if use_mcem_julius and not use_mcem_simon:
-
-            # NMF parameters are initialized inside MCEM
-            mcem = mcem_julius.MCEM_M1(X=x_tf.T,
-                                    Z=Z_init.T,
-                                    model=model,
-                                    device=device,
-                                    niter_MCEM=niter,
-                                    niter_MH=nsamples_E_step+burnin_E_step,
-                                    burnin=burnin_E_step,
-                                    var_MH=var_RW,
-                                    NMF_rank=nmf_rank,
-                                    eps=eps)
-            
-            t0 = time.time()
-
-            mcem.run()
-            mcem.separate(niter_MH=nsamples_WF+burnin_WF, burnin=burnin_WF)
-
-            elapsed = time.time() - t0
-            print("elapsed time: %.4f s" % (elapsed))
-
-        elif not use_mcem_julius and use_mcem_simon:
-
-            # NMF parameters are initialized outside MCEM
-            N, F = x_tf.shape
-            W_init = np.maximum(np.random.rand(F,nmf_rank), eps, dtype='float32')
-            H_init = np.maximum(np.random.rand(nmf_rank, N), eps, dtype='float32')
-            g_init = torch.ones(N).to(device) # float32 by default
-
-            mcem = MCEM_M1(X=x_tf,
-                           W=W_init,
-                           H=H_init,
-                           g=g_init,
-                           Z=Z_init,
-                           vae=model, device=device, niter=niter,
-                           nsamples_E_step=nsamples_E_step,
-                           burnin_E_step=burnin_E_step, nsamples_WF=nsamples_WF, 
-                           burnin_WF=burnin_WF, var_RW=var_RW)
-            
-            #%% Run speech enhancement algorithm
-            cost = mcem.run()
-        else:
-            ValueError('You must set use_mcem_julius OR use_mcem_simon to True.')
-
-        # Estimated sources
-        S_hat = mcem.S_hat #+ np.finfo(np.float32).eps
-        N_hat = mcem.N_hat #+ np.finfo(np.float32).eps
-
-        # iSTFT
-        s_hat = istft(S_hat,
-                    fs=fs,
-                    wlen_sec=wlen_sec,
-                    win=win,
-                    hop_percent=hop_percent,
-                    max_len=T_orig)
-
-        n_hat = istft(N_hat,
-            fs=fs,
-            wlen_sec=wlen_sec,
-            win=win,
-            hop_percent=hop_percent,
-            max_len=T_orig)
-
-        # Save .wav files
-        output_path = output_data_dir + file_path
-        output_path = os.path.splitext(output_path)[0]
-
-        if not os.path.exists(os.path.dirname(output_path)):
-            os.makedirs(os.path.dirname(output_path))
-        
-        sf.write(output_path + '_s_est.wav', s_hat, fs)
-        sf.write(output_path + '_n_est.wav', n_hat, fs)
-
-        end_file = time.time()
-        elapsed.append(end_file - start_file)
-        etc = (len(file_paths)-i-1)*np.mean(elapsed)
-
-    end = time.time()
-    print('- File {}/{}   '.format(len(file_paths), len(file_paths)))
-    print('                     total time: {:6.1f} s'.format(end-start))
+        # start_file = time.time()
+        # print('- File {}/{}'.format(i+1,len(file_paths)), end='\r')
+        process_utt(file_path, model, mcem, device)
+    
+    t2 = time.perf_counter()
+    print(f'Finished in {t2 - t1} seconds')
         
 if __name__ == '__main__':
     main()

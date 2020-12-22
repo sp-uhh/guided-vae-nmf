@@ -2,31 +2,27 @@ import sys
 sys.path.append('.')
 
 import os
-import pickle
 import numpy as np
 import torch
-from torch import nn
 import time
 import soundfile as sf
-from tqdm import tqdm
 import torch.multiprocessing as multiprocessing
 
-from python.dataset.csr1_wjs0_dataset import speech_list
 from python.processing.stft import stft, istft
 from python.processing.target import clean_speech_IBM
 from python.models.mcem import MCEM_M1
 from python.models.models import VariationalAutoencoder
 #from utils import count_parameters
 
+# Dataset
+dataset_name = 'CSR-1-WSJ-0'
+if dataset_name == 'CSR-1-WSJ-0':
+    from python.dataset.csr1_wjs0_dataset import speech_list
 
-# Settings
 dataset_type = 'test'
 
 dataset_size = 'subset'
 # dataset_size = 'complete'
-
-input_speech_dir = os.path.join('data',dataset_size,'raw/')
-#processed_data_dir = os.path.joint('data',dataset_size,'processed/')
 
 cuda = torch.cuda.is_available()
 eps = 1e-8
@@ -39,7 +35,6 @@ wlen_sec = 64e-3 # window length in seconds
 hop_percent = 0.25  # hop size as a percentage of the window length
 win = 'hann' # type of window
 dtype = 'complex64'
-
 
 
 ## Deep Generative Model
@@ -103,15 +98,19 @@ var_RW = 0.01
 
 # GPU Multiprocessing
 nb_devices = torch.cuda.device_count()
-nb_process_per_device = 2
+nb_process_per_device = 1
 
 # Data directories
+model_path = os.path.join('models_wsj0', model_name + '.pt')
+input_speech_dir = os.path.join('data',dataset_size,'raw/')
 output_data_dir = os.path.join('data', dataset_size, 'models', model_name + '/')
 processed_data_dir = os.path.join('data',dataset_size,'processed/')
 
+#####################################################################################################
 
 def process_utt(mcem, model, file_path, device):
 
+    # Input
     x_t, fs_x = sf.read(processed_data_dir + os.path.splitext(file_path)[0] + '_x.wav') # mixture
     T_orig = len(x_t)
 
@@ -156,15 +155,15 @@ def process_utt(mcem, model, file_path, device):
         hop_percent=hop_percent,
         max_len=T_orig)
 
-    # # Save .wav files
-    # output_path = output_data_dir + file_path
-    # output_path = os.path.splitext(output_path)[0]
+    # Save .wav files
+    output_path = output_data_dir + file_path
+    output_path = os.path.splitext(output_path)[0]
 
-    # if not os.path.exists(os.path.dirname(output_path)):
-    #     os.makedirs(os.path.dirname(output_path))
+    if not os.path.exists(os.path.dirname(output_path)):
+        os.makedirs(os.path.dirname(output_path))
     
-    # sf.write(output_path + '_s_est.wav', s_hat, fs)
-    # sf.write(output_path + '_n_est.wav', n_hat, fs)
+    sf.write(output_path + '_s_est.wav', s_hat, fs)
+    sf.write(output_path + '_n_est.wav', n_hat, fs)
 
     # end_file = time.time()
     # elapsed.append(end_file - start_file)
@@ -173,16 +172,6 @@ def process_utt(mcem, model, file_path, device):
     # end = time.time()
     # print('- File {}/{}   '.format(len(file_paths), len(file_paths)))
     # print('                     total time: {:6.1f} s'.format(end-start))
-
-class MyDataParallel:
-    def __init__(self, model, mcem, device):
-        self.model = model
-        self.mcem = mcem
-        self.device = device
-    
-    def process_utt(self, file_path):
-        return process_utt(file_path, self.model, self.mcem, self.device)
-
 
 def process_sublist(device, sublist, mcem, model):
 
@@ -206,7 +195,7 @@ def main():
 
     # Load model
     model = VariationalAutoencoder([x_dim, z_dim, h_dim])
-    model.load_state_dict(torch.load(os.path.join('models_wsj0', model_name + '.pt'), map_location="cpu"))
+    model.load_state_dict(torch.load(model_path, map_location="cpu"))
     
     # Create MCEM object
     mcem = MCEM_M1(niter=niter,
@@ -217,8 +206,6 @@ def main():
     # Create file list
     file_paths = speech_list(input_speech_dir=input_speech_dir,
                              dataset_type=dataset_type)
-    
-    file_paths = file_paths * 10
    
     # Split list in nb_devices * nb_processes_per_device
     b = np.array_split(file_paths, nb_devices*nb_process_per_device)
@@ -229,19 +216,14 @@ def main():
     # print('Start evaluation')
     # start = time.time()
     # elapsed = []
+    print('Start evaluation')
 
     t1 = time.perf_counter()
     
-    print('start')
     with ctx.Pool(processes=nb_process_per_device*nb_devices) as multi_pool:
-        predictions = multi_pool.starmap(process_sublist, b)
+        multi_pool.starmap(process_sublist, b)
 
-    # #TODO: split in batches?
-    # for i, file_path in tqdm(enumerate(file_paths)):   
-    #     start_file = time.time()
-    #     print('- File {}/{}'.format(i+1,len(file_paths)), end='\r')
-    #     process_utt(mcem, file_path)
-
+    # Test script on 1 sublist
     # process_sublist(*b[0])
 
     t2 = time.perf_counter()

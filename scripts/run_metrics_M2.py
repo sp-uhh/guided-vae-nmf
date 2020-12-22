@@ -92,7 +92,10 @@ processed_data_dir = os.path.join('data',dataset_size,'processed/')
 model_data_dir = os.path.join('data', dataset_size, 'models_wsj0', model_name, classif_name + '/') # Directory where estimated data is stored
 
 
-def compute_metrics_utt(file_path):
+def compute_metrics_utt(args):
+    # Separate args
+    file_path, snr_db = args[0], args[1]
+
     # Read files
     s_t, fs_s = sf.read(processed_data_dir + os.path.splitext(file_path)[0] + '_s.wav') # clean speech
     n_t, fs_n = sf.read(processed_data_dir + os.path.splitext(file_path)[0] + '_n.wav') # noise
@@ -154,35 +157,35 @@ def compute_metrics_utt(file_path):
                 hop_percent=hop_percent,
                 dtype=dtype) # shape = (freq_bins, frames)                 
 
-    # ## mixture signal (wav + spectro)
-    # ## target signal (wav + spectro + mask)
-    # ## estimated signal (wav + spectro + mask)
-    # signal_list = [
-    #     [x_t, x_tf, None], # mixture: (waveform, tf_signal, no mask)
-    #     [s_t, s_tf, y], # clean speech
-    #     [s_hat_t, s_hat_tf, y_hat_hard]
-    # ]
-    # fig = display_multiple_signals(signal_list,
-    #                     fs=fs, vmin=vmin, vmax=vmax,
-    #                     wlen_sec=wlen_sec, hop_percent=hop_percent,
-    #                     xticks_sec=xticks_sec, fontsize=fontsize)
+    ## mixture signal (wav + spectro)
+    ## target signal (wav + spectro + mask)
+    ## estimated signal (wav + spectro + mask)
+    signal_list = [
+        [x_t, x_tf, None], # mixture: (waveform, tf_signal, no mask)
+        [s_t, s_tf, y], # clean speech
+        [s_hat_t, s_hat_tf, y_hat_hard]
+    ]
+    fig = display_multiple_signals(signal_list,
+                        fs=fs, vmin=vmin, vmax=vmax,
+                        wlen_sec=wlen_sec, hop_percent=hop_percent,
+                        xticks_sec=xticks_sec, fontsize=fontsize)
     
-    # # put all metrics in the title of the figure
-    # title = "Input SNR = {:.1f} dB \n" \
-    #     "SI-SDR = {:.1f} dB, " \
-    #     "SI-SIR = {:.1f} dB, " \
-    #     "SI-SAR = {:.1f} dB \n" \
-    #     "STOI = {:.2f}, " \
-    #     "PESQ = {:.2f} \n" \
-    #     "F1-score = {:.3f} \n".format(all_snr_db[i], si_sdr, si_sir, si_sar, stoi_s_hat, pesq_s_hat, f1score_s_hat)
+    # put all metrics in the title of the figure
+    title = "Input SNR = {:.1f} dB \n" \
+        "SI-SDR = {:.1f} dB, " \
+        "SI-SIR = {:.1f} dB, " \
+        "SI-SAR = {:.1f} dB \n" \
+        "STOI = {:.2f}, " \
+        "PESQ = {:.2f} \n" \
+        "F1-score = {:.3f} \n".format(snr_db, si_sdr, si_sir, si_sar, stoi_s_hat, pesq_s_hat, f1score_s_hat)
 
-    # fig.suptitle(title, fontsize=40)
+    fig.suptitle(title, fontsize=40)
 
-    # # Save figure
-    # fig.savefig(model_data_dir + os.path.splitext(file_path)[0] + '_fig.png')
+    # Save figure
+    fig.savefig(model_data_dir + os.path.splitext(file_path)[0] + '_fig.png')
 
-    # # Clear figure
-    # plt.close()
+    # Clear figure
+    plt.close()
 
     metrics = [si_sdr, si_sir, si_sar, stoi_s_hat, pesq_s_hat, f1score_s_hat]
     return metrics
@@ -196,10 +199,13 @@ def main():
     file_paths = speech_list(input_speech_dir=input_speech_dir,
                                 dataset_type=dataset_type)
 
+    # Fuse both list
+    args = [[file_path, snr_db] for file_path, snr_db in zip(file_paths, all_snr_db)]
+
     t1 = time.perf_counter()
 
     with concurrent.futures.ProcessPoolExecutor(max_workers=None) as executor:
-        all_metrics = executor.map(compute_metrics_utt, file_paths)
+        all_metrics = executor.map(compute_metrics_utt, args)
     
     t2 = time.perf_counter()
     print(f'Finished in {t2 - t1} seconds')

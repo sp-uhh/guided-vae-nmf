@@ -29,8 +29,6 @@ input_speech_dir = os.path.join('data',dataset_size,'raw/')
 processed_data_dir = os.path.join('data',dataset_size,'processed/')
 
 cuda = torch.cuda.is_available()
-eps = 1e-8
-
 
 # Parameters
 ## STFT
@@ -43,21 +41,27 @@ dtype = 'complex64'
 
 
 ## Deep Generative Model
-model_name = 'M1_end_epoch_050/M1_epoch_036_vloss_465.28'
+# model_name = 'M1_end_epoch_050/M1_epoch_036_vloss_465.28'
+# x_dim = 513 # frequency bins (spectrogram)
+# z_dim = 128
+# h_dim = [256, 128]
+# eps = 1e-8
+
+model_name = 'M1_hdim_128_128_zdim_032_end_epoch_200/M1_epoch_124_vloss_475.95'
 x_dim = 513 # frequency bins (spectrogram)
-z_dim = 128
-h_dim = [256, 128]
-
-model_data_dir = 'data/' + dataset_size + '/models/' + model_name + '/'
-
-# Output_data_dir
-output_data_dir = os.path.join('data', dataset_size, 'models', model_name + '/')
+z_dim = 32
+h_dim = [128, 128]
+eps = 1e-8
 
 ## Plot spectrograms
 vmin = -40 # in dB
 vmax = 20 # in dB
 xticks_sec = 2.0 # in seconds
 fontsize = 30
+
+# Data directories
+model_data_path = os.path.join('models_wsj0', model_name + '.pt')
+output_data_dir = os.path.join('data', dataset_size, 'models', model_name + '/')
 
 def main():
     # Load input SNR
@@ -76,7 +80,7 @@ def main():
                              dataset_type=dataset_type)
 
     model = VariationalAutoencoder([x_dim, z_dim, h_dim])
-    model.load_state_dict(torch.load(os.path.join('models', model_name + '.pt')))
+    model.load_state_dict(torch.load(model_data_path))
     if cuda: model = model.cuda()
 
     model.eval()
@@ -112,7 +116,7 @@ def main():
         x = torch.tensor(np.power(np.abs(x_tf), 2)).to(device)
 
         # Encode-decode
-        reconstruction = model(x)
+        reconstruction, _, _ = model(x)
         reconstruction = reconstruction.cpu().numpy()
 
         # plots of target / estimation
@@ -156,7 +160,7 @@ def main():
         fig.suptitle(title, fontsize=40)
 
         # Save figure
-        fig.savefig(model_data_dir + os.path.splitext(file_path)[0] + '_recon.png')
+        fig.savefig(output_data_dir + os.path.splitext(file_path)[0] + '_recon.png')
         
 if __name__ == '__main__':
     main()

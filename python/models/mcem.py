@@ -33,10 +33,9 @@ class EM:
         # shape (R, F, N)
         self.Vx = None # mixture variance, shape (R, F, N)          
 
-    def init_parameters(self, X, vae, nmf_rank, eps, device="cpu"):
+    def init_parameters(self, X, nmf_rank, eps, device="cpu"):
 
         self.device = device
-        self.vae = vae
 
         # Initialize NMF parameters
         N, F = X.shape
@@ -181,18 +180,18 @@ class EM:
 
 class MCEM_M2(EM):
     
-    def __init__(self, X, W, H, g, Z, y, vae, niter, device, nsamples_E_step=10, 
-                 burnin_E_step=30, nsamples_WF=25, burnin_WF=75, var_RW=0.01):
+    # def __init__(self, X, W, H, g, Z, y, vae, niter, device, nsamples_E_step=10, 
+    #              burnin_E_step=30, nsamples_WF=25, burnin_WF=75, var_RW=0.01):
+    def __init__(self, niter, nsamples_E_step=10, 
+                burnin_E_step=30, nsamples_WF=25, burnin_WF=75, var_RW=0.01):
+  
+        # super().__init__(X=X, W=W, H=H, g=g, vae=vae, niter=niter, 
+        #      device=device)
+        super().__init__(niter=niter)
         
-        super().__init__(X=X, W=W, H=H, g=g, vae=vae, niter=niter, 
-             device=device)
-
-        if type(vae).__name__ == 'RVAE':
-            raise NameError('MCEM algorithm only valid for FFNN VAE')
-        
-        _, Z, _ = self.vae.encoder(x)
-        self.Z = torch.t(Z) # Last draw of the latent variables, shape (L, N)
-        self.y = torch.t(y)  # label
+        # _, Z, _ = self.vae.encoder(x)
+        # self.Z = torch.t(Z) # Last draw of the latent variables, shape (L, N)
+        # self.y = torch.t(y)  # label
         self.nsamples_E_step = nsamples_E_step
         self.burnin_E_step = burnin_E_step
         self.nsamples_WF = nsamples_WF
@@ -201,12 +200,21 @@ class MCEM_M2(EM):
         
         # mixture power spectrogram as tensor, shape (F, N)
         #self.X_abs_2_t = self.np2tensor(self.X_abs_2).to(self.device) 
-        self.X_abs_2_t = self.X_abs_2.clone()
+        # self.X_abs_2_t = self.X_abs_2.clone()
 
-        self.vae.eval() # vae in eval mode
-        
-        
-        
+        # self.vae.eval() # vae in eval mode
+    
+    def init_parameters(self, X, y, vae, nmf_rank, eps, device):
+        if type(vae).__name__ == 'RVAE':
+            raise NameError('MCEM algorithm only valid for FFNN VAE')
+
+        super().init_parameters(X=X, nmf_rank=nmf_rank, eps=eps, device=device)
+        self.vae = vae
+        self.y = torch.t(y)  # label
+        _, Z, _ = self.vae.encoder(torch.t(torch.cat([self.X_abs_2, self.y], dim=0)))
+        self.Z = torch.t(Z) # Last draw of the latent variables, shape (L, N)
+        self.X_abs_2_t = self.X_abs_2.clone()
+   
     def sample_posterior(self, Z, y, nsamples=10, burnin=30):
         # Metropolis-Hastings
         
@@ -272,7 +280,6 @@ class MCEM_M2(EM):
             Z_t[:,is_acc] = Z_prime_t[:,is_acc]
             
             # update variances
-            #Vs_t = torch.t(self.vae.decoder(torch.t(Z_t)))
             Vs_t = torch.t(self.vae.decoder(torch.t(torch.cat([Z_t, y], dim=0))))
             Vx_t = g_t*Vs_t + Vb_t
             
@@ -283,6 +290,7 @@ class MCEM_M2(EM):
         
         # print('averaged acceptance rate: %f' % (averaged_acc_rate.item()))
         
+        #TODO: check this concatenated of sampled Z_t and y
         return Z_sampled_t, Z_sampled_y_t        
         
             
@@ -339,38 +347,23 @@ class MCEM_M2(EM):
 
 class MCEM_M1(EM):
     
-    # def __init__(self, X, W, H, g, Z, vae, niter, device, nsamples_E_step=10, 
-    # def __init__(self, vae, niter, device, nsamples_E_step=10, 
-    #              burnin_E_step=30, nsamples_WF=25, burnin_WF=75, var_RW=0.01):
     def __init__(self, niter, nsamples_E_step=10, 
                  burnin_E_step=30, nsamples_WF=25, burnin_WF=75, var_RW=0.01):
     
-        # super().__init__(X=X, W=W, H=H, g=g, vae=vae, niter=niter, 
-        # super().__init__(vae=vae, niter=niter, device=device)
         super().__init__(niter=niter)
 
-        # if type(vae).__name__ == 'RVAE':
-        #     raise NameError('MCEM algorithm only valid for FFNN VAE')
-        
-        # _, Z, _ = self.vae.encoder(self.X_abs_2)
-        # self.Z = torch.t(Z) # Last draw of the latent variables, shape (L, N)
         self.nsamples_E_step = nsamples_E_step
         self.burnin_E_step = burnin_E_step
         self.nsamples_WF = nsamples_WF
         self.burnin_WF = burnin_WF
         self.var_RW = var_RW        
-        
-        # mixture power spectrogram as tensor, shape (F, N)
-        #self.X_abs_2_t = self.np2tensor(self.X_abs_2).to(self.device) 
-        # self.X_abs_2_t = self.X_abs_2.clone()
-
-        # self.vae.eval() # vae in eval mode
-        
+                
     def init_parameters(self, X, vae, nmf_rank, eps, device):
         if type(vae).__name__ == 'RVAE':
             raise NameError('MCEM algorithm only valid for FFNN VAE')
         
-        super().init_parameters(X=X, vae=vae, nmf_rank=nmf_rank, eps=eps, device=device)
+        super().init_parameters(X=X, nmf_rank=nmf_rank, eps=eps, device=device)
+        self.vae = vae
         _, Z, _ = self.vae.encoder(torch.t(self.X_abs_2))
         self.Z = torch.t(Z) # Last draw of the latent variables, shape (L, N)
         self.X_abs_2_t = self.X_abs_2.clone()
@@ -391,7 +384,6 @@ class MCEM_M1(EM):
         
         # latent variables sampled from the posterior
         Z_sampled_t = torch.zeros(N, nsamples, L, device=self.device)
-        #Z_sampled_y_t = torch.zeros(N, nsamples, L + F).to(self.device) # concat of Z_sampled_t and y
         
         # intial latent variables as tensor, shape (L, N)        
         #Z_t = self.np2tensor(Z).to(self.device)        

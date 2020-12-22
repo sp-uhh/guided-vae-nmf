@@ -12,16 +12,17 @@ class EM:
     """
     
     # def __init__(self, X, W, H, g, vae, niter=100, device='cpu'):
-    def __init__(self, vae, niter=100, device='cpu'):
+    # def __init__(self, vae, niter=100, device='cpu'):
+    def __init__(self, niter=100):
     
-        self.device = device
+        # self.device = device
         
         # self.X = X.T # mixture STFT, shape (F,N)
         # self.X_abs_2 = self.np2tensor(np.abs(X.T)**2).to(self.device) # mixture power spectrogram, shape (F, N)
         # self.W = self.np2tensor(W).to(self.device) # NMF dictionary matrix, shape (F, K)
         # self.H = self.np2tensor(H).to(self.device) # NMF activation matrix, shape (K, N)
         # self.compute_Vb() # noise variance, shape (F, N)
-        self.vae = vae # variational autoencoder 
+        # self.vae = vae # variational autoencoder 
         self.niter = niter # number of iterations
         # self.g = g # gain parameters, shape (, N)
         # self.g = self.np2tensor(g).to(self.device) # gain parameters, shape (, N)
@@ -31,14 +32,20 @@ class EM:
         self.Vs_scaled = None # speech variance multiplied by gain, 
         # shape (R, F, N)
         self.Vx = None # mixture variance, shape (R, F, N)          
-    
-    def weight_reset(self, X, W, H, g):
+
+    def weight_reset(self, vae, X, W, H, g, device="cpu"):
+        self.device = device
+        self.vae = vae
         self.X = X.T # mixture STFT, shape (F,N)
-        self.X_abs_2 = self.np2tensor(np.abs(X.T)**2).to(self.device) # mixture power spectrogram, shape (F, N)
-        self.W = self.np2tensor(W).to(self.device) # NMF dictionary matrix, shape (F, K)
-        self.H = self.np2tensor(H).to(self.device) # NMF activation matrix, shape (K, N)
+        # self.X_abs_2 = self.np2tensor(np.abs(X.T)**2).to(self.device) # mixture power spectrogram, shape (F, N)
+        self.X_abs_2 = torch.tensor(np.abs(X.T)**2, device=self.device)
+        # self.W = self.np2tensor(W).to(self.device) # NMF dictionary matrix, shape (F, K)
+        self.W = W
+        # self.H = self.np2tensor(H).to(self.device) # NMF activation matrix, shape (K, N)
+        self.H = H
         self.compute_Vb() # noise variance, shape (F, N)
-        self.g = self.np2tensor(g).to(self.device) # gain parameters, shape (, N)
+        # self.g = self.np2tensor(g).to(self.device) # gain parameters, shape (, N)
+        self.g = g
         self.Vs = None # speech variance, shape (R, F, N), where R corresponds 
         # to different draws of the latent variables fed as input to the vae
         # decoder
@@ -47,7 +54,8 @@ class EM:
         self.Vx = None # mixture variance, shape (R, F, N)          
 
     def np2tensor(self, x):
-        y = torch.from_numpy(x.astype(np.float32))
+        # y = torch.from_numpy(x.astype(np.float32))
+        y = torch.tensor(x, device=self.device) # Faster memory allocation
         return y
 
     def tensor2np(self, x):
@@ -208,11 +216,11 @@ class MCEM_M2(EM):
         
         # random walk variance as tensor
         #var_RM_t = torch.tensor(np.float32(self.var_RW))
-        var_RM_t = torch.tensor(np.float32(self.var_RW)).to(self.device)
+        var_RM_t = torch.tensor(np.float32(self.var_RW), device=self.device)
         
         # latent variables sampled from the posterior
-        Z_sampled_t = torch.zeros(N, nsamples, L).to(self.device)
-        Z_sampled_y_t = torch.zeros(N, nsamples, L + y_dim).to(self.device) # concat of Z_sampled_t and y
+        Z_sampled_t = torch.zeros(N, nsamples, L, device=self.device)
+        Z_sampled_y_t = torch.zeros(N, nsamples, L + y_dim, device=self.device) # concat of Z_sampled_t and y
         
         # intial latent variables as tensor, shape (L, N)        
         #Z_t = self.np2tensor(Z).to(self.device)        
@@ -328,14 +336,17 @@ class MCEM_M2(EM):
 class MCEM_M1(EM):
     
     # def __init__(self, X, W, H, g, Z, vae, niter, device, nsamples_E_step=10, 
-    def __init__(self, vae, niter, device, nsamples_E_step=10, 
+    # def __init__(self, vae, niter, device, nsamples_E_step=10, 
+    #              burnin_E_step=30, nsamples_WF=25, burnin_WF=75, var_RW=0.01):
+    def __init__(self, niter, nsamples_E_step=10, 
                  burnin_E_step=30, nsamples_WF=25, burnin_WF=75, var_RW=0.01):
-        
+    
         # super().__init__(X=X, W=W, H=H, g=g, vae=vae, niter=niter, 
-        super().__init__(vae=vae, niter=niter, device=device)
+        # super().__init__(vae=vae, niter=niter, device=device)
+        super().__init__(niter=niter)
 
-        if type(vae).__name__ == 'RVAE':
-            raise NameError('MCEM algorithm only valid for FFNN VAE')
+        # if type(vae).__name__ == 'RVAE':
+        #     raise NameError('MCEM algorithm only valid for FFNN VAE')
         
         # _, Z, _ = self.vae.encoder(self.X_abs_2)
         # self.Z = torch.t(Z) # Last draw of the latent variables, shape (L, N)
@@ -351,8 +362,11 @@ class MCEM_M1(EM):
 
         # self.vae.eval() # vae in eval mode
         
-    def weight_reset(self, X, W, H, g):
-        super().weight_reset(X=X, W=W, H=H, g=g)
+    def weight_reset(self, vae, X, W, H, g, device):
+        if type(vae).__name__ == 'RVAE':
+            raise NameError('MCEM algorithm only valid for FFNN VAE')
+        
+        super().weight_reset(vae=vae, X=X, W=W, H=H, g=g, device=device)
         _, Z, _ = self.vae.encoder(torch.t(self.X_abs_2))
         self.Z = torch.t(Z) # Last draw of the latent variables, shape (L, N)
         self.X_abs_2_t = self.X_abs_2.clone()
@@ -369,10 +383,10 @@ class MCEM_M1(EM):
         
         # random walk variance as tensor
         #var_RM_t = torch.tensor(np.float32(self.var_RW))
-        var_RM_t = torch.tensor(np.float32(self.var_RW)).to(self.device)
+        var_RM_t = torch.tensor(np.float32(self.var_RW), device=self.device)
         
         # latent variables sampled from the posterior
-        Z_sampled_t = torch.zeros(N, nsamples, L).to(self.device)
+        Z_sampled_t = torch.zeros(N, nsamples, L, device=self.device)
         #Z_sampled_y_t = torch.zeros(N, nsamples, L + F).to(self.device) # concat of Z_sampled_t and y
         
         # intial latent variables as tensor, shape (L, N)        

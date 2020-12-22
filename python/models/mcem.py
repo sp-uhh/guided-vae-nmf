@@ -33,19 +33,23 @@ class EM:
         # shape (R, F, N)
         self.Vx = None # mixture variance, shape (R, F, N)          
 
-    def weight_reset(self, vae, X, W, H, g, device="cpu"):
+    def init_parameters(self, X, vae, nmf_rank, eps, device="cpu"):
+
         self.device = device
         self.vae = vae
+
+        # Initialize NMF parameters
+        N, F = X.shape
+        W_init = torch.max(torch.rand(F,nmf_rank, device=self.device), eps * torch.ones(F, nmf_rank, device=self.device))
+        H_init = torch.max(torch.rand(nmf_rank, N, device=self.device), eps * torch.ones(nmf_rank, N, device=self.device))
+        g_init = torch.ones(N, device=self.device) # float32 by default
+
         self.X = X.T # mixture STFT, shape (F,N)
-        # self.X_abs_2 = self.np2tensor(np.abs(X.T)**2).to(self.device) # mixture power spectrogram, shape (F, N)
         self.X_abs_2 = torch.tensor(np.abs(X.T)**2, device=self.device)
-        # self.W = self.np2tensor(W).to(self.device) # NMF dictionary matrix, shape (F, K)
-        self.W = W
-        # self.H = self.np2tensor(H).to(self.device) # NMF activation matrix, shape (K, N)
-        self.H = H
+        self.W = W_init
+        self.H = H_init
         self.compute_Vb() # noise variance, shape (F, N)
-        # self.g = self.np2tensor(g).to(self.device) # gain parameters, shape (, N)
-        self.g = g
+        self.g = g_init
         self.Vs = None # speech variance, shape (R, F, N), where R corresponds 
         # to different draws of the latent variables fed as input to the vae
         # decoder
@@ -362,11 +366,11 @@ class MCEM_M1(EM):
 
         # self.vae.eval() # vae in eval mode
         
-    def weight_reset(self, vae, X, W, H, g, device):
+    def init_parameters(self, X, vae, nmf_rank, eps, device):
         if type(vae).__name__ == 'RVAE':
             raise NameError('MCEM algorithm only valid for FFNN VAE')
         
-        super().weight_reset(vae=vae, X=X, W=W, H=H, g=g, device=device)
+        super().init_parameters(X=X, vae=vae, nmf_rank=nmf_rank, eps=eps, device=device)
         _, Z, _ = self.vae.encoder(torch.t(self.X_abs_2))
         self.Z = torch.t(Z) # Last draw of the latent variables, shape (L, N)
         self.X_abs_2_t = self.X_abs_2.clone()

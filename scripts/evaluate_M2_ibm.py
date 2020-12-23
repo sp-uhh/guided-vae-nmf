@@ -14,7 +14,6 @@ from python.utils import count_parameters
 from python.models.mcem import MCEM_M2
 from python.models.models import DeepGenerativeModel, Classifier
 from python.models.spp_estimation import timo_mask_estimation
-#from utils import count_parameters
 
 ##################################### SETTINGS #####################################################
 
@@ -30,8 +29,6 @@ dataset_size = 'subset'
 
 # System 
 cuda = torch.cuda.is_available()
-# cuda_device = "cuda:0"
-# device = torch.device(cuda_device if cuda else "cpu")
 
 # STFT parameters
 fs = int(16e3) # Sampling rate
@@ -104,16 +101,26 @@ def process_utt(mcem, model, classifier, mean, std, file_path, device):
     # Input
     x_t, fs_x = sf.read(processed_data_dir + os.path.splitext(file_path)[0] + '_x.wav') # mixture
     T_orig = len(x_t)
-    x_tf = stft(x_t, fs, wlen_sec, win, hop_percent) # (frames, freq_bins)
+    x_tf = stft(x_t,
+                fs=fs,
+                wlen_sec=wlen_sec,
+                win=win,
+                hop_percent=hop_percent,
+                dtype=dtype) # (frames, freq_bins)
     
     # Transpose to match PyTorch
     x_tf = x_tf.T # (frames, freq_bins)
 
-    x = torch.tensor(np.power(np.abs(x_tf), 2)).to(device)
+    x = torch.tensor(np.power(np.abs(x_tf), 2), device=device)
 
     # Target
     s_t, fs_s = sf.read(processed_data_dir + os.path.splitext(file_path)[0] + '_s.wav') # clean speech
-    s_tf = stft(s_t, fs, wlen_sec, win, hop_percent)
+    s_tf = stft(s_t,
+                fs=fs,
+                wlen_sec=wlen_sec,
+                win=win,
+                hop_percent=hop_percent,
+                dtype=dtype) # (freq_bins, frames)
 
     if classif_type == 'dnn':    
         # Normalize power spectrogram
@@ -137,15 +144,6 @@ def process_utt(mcem, model, classifier, mean, std, file_path, device):
         y_hat_hard = y_hat_hard.T # (frames, freq_bins)
         y_hat_hard = torch.tensor(y_hat_hard).to(device)
     
-    # # Encode
-    # _, Z_init, _ = model.encoder(torch.cat([x, y_hat_hard], dim=1))
-
-    # # NMF parameters are initialized outside MCEM
-    # N, F = x_tf.shape
-    # W_init = np.maximum(np.random.rand(F,nmf_rank), eps)
-    # H_init = np.maximum(np.random.rand(nmf_rank, N), eps)
-    # g_init = torch.ones(N).to(device)
-
     # Init MCEM
     mcem.init_parameters(X=x_tf,
                          y=y_hat_hard,
@@ -200,8 +198,8 @@ def process_sublist(device, sublist, mcem, model, classifier):
 
         if std_norm:
             # Load mean and variance
-            mean = np.load(os.path.dirname(classif_dir) + '/' + 'trainset_mean.npy')
-            std = np.load(os.path.dirname(classif_dir) + '/' + 'trainset_std.npy')
+            mean = np.load(os.path.dirname(classif_path) + '/' + 'trainset_mean.npy')
+            std = np.load(os.path.dirname(classif_path) + '/' + 'trainset_std.npy')
 
             mean = torch.tensor(mean).to(device)
             std = torch.tensor(std).to(device)
@@ -214,6 +212,7 @@ def main():
 
     print('Torch version: {}'.format(torch.__version__))
 
+    # Start context for GPU multiprocessing
     ctx = multiprocessing.get_context('spawn')
 
     print('Load models')
@@ -226,13 +225,13 @@ def main():
 
     model = DeepGenerativeModel([x_dim, y_dim, z_dim, h_dim], None)
     model.load_state_dict(torch.load(model_path, map_location="cpu"))
+
+    print('- Number of learnable parameters: {}'.format(count_parameters(model)))
     
     mcem = MCEM_M2(niter=niter,
                    nsamples_E_step=nsamples_E_step,
                    burnin_E_step=burnin_E_step, nsamples_WF=nsamples_WF, 
                    burnin_WF=burnin_WF, var_RW=var_RW)
-
-    print('- Number of learnable parameters: {}'.format(count_parameters(model)))
 
     # Create file list
     file_paths = speech_list(input_speech_dir=input_speech_dir, dataset_type=dataset_type)

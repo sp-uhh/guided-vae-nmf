@@ -4,7 +4,8 @@ sys.path.append('.')
 import numpy as np
 import soundfile as sf
 import os
-from tqdm import tqdm
+import concurrent.futures # for multiprocessing
+import time
 
 from python.utils import open_file
 
@@ -70,6 +71,50 @@ def process_noise():
         
         noise_audios[noise_type] = noise_audio
 
+def process_save_utt(args):
+    # Separate args
+    file_path, noise_type, snr_dB  = args[0], args[1], args[2]
+
+    speech, fs_speech = sf.read(input_speech_dir + file_path, samplerate=None)
+
+    # Cut burst at begining of file
+    speech = speech[int(0.1*fs):]
+
+    # Normalize audio
+    speech = speech/(np.max(np.abs(speech)))
+
+    if fs != fs_speech:
+        raise ValueError('Unexpected sampling rate')
+
+    # Extract noise segment
+    noise = noise_segment(noise_audios, noise_type, speech)
+
+    # Compute noise gain
+    speech_power = np.sum(np.power(speech, 2))
+    noise_power = np.sum(np.power(noise, 2))
+    noise_power_target = speech_power*np.power(10,-snr_dB/10)
+    k = noise_power_target / noise_power
+    noise = noise * np.sqrt(k)
+
+    # Normalize by max of speech, noise, speech+noise
+    norm = np.max(abs(np.concatenate([speech, noise, speech+noise])))
+    mixture = (speech+noise) / norm
+    speech /= norm
+    noise /= norm
+
+    # Save .wav files
+    output_path = output_wav_dir + file_path
+    output_path = os.path.splitext(output_path)[0]
+
+    if not os.path.exists(os.path.dirname(output_path)):
+        os.makedirs(os.path.dirname(output_path))
+    
+    sf.write(output_path + '_s.wav', speech, fs)
+    sf.write(output_path + '_n.wav', noise, fs)
+    sf.write(output_path + '_x.wav', mixture, fs)
+
+    # TODO: save SNR, level_s, level_n in a figure
+
 def main():
 
     # Create file list
@@ -85,9 +130,11 @@ def main():
     snrs_index = np.random.randint(len(snrs), size=len(file_paths))
 
     # Create noise audios
+    #TODO: read noises from processed, not from raw
     noise_paths = noise_list(input_noise_dir=input_noise_dir,
                              dataset_type=dataset_type)
-    noise_audios = {}
+    global noise_audios # in order to be read by process_save_utt
+    noise_audios = {} 
 
     # Load the noise files
     for noise_type, noise_path in noise_paths.items():
@@ -104,63 +151,29 @@ def main():
             
             noise_audios[noise_type] = noise_audio
 
-
     # Save all SNRs
-    all_snr_dB = []
-
-    # Loop over the speech files
-    for i, file_path in tqdm(enumerate(file_paths)):
-
-        speech, fs_speech = sf.read(input_speech_dir + file_path, samplerate=None)
-
-        # Cut burst at begining of file
-        speech = speech[int(0.1*fs):]
-
-        # Normalize audio
-        speech = speech/(np.max(np.abs(speech)))
-
-        if fs != fs_speech:
-            raise ValueError('Unexpected sampling rate')
-
-        # Select noise_type            
-        noise_type = noise_types[noise_index[i]]
- 
-        # Extract noise segment
-        noise = noise_segment(noise_audios, noise_type, speech)
-
-        # Select SNR
-        snr_dB = snrs[snrs_index[i]]
-        all_snr_dB.append(snr_dB)
-
-        # Compute noise gain
-        speech_power = np.sum(np.power(speech, 2))
-        noise_power = np.sum(np.power(noise, 2))
-        noise_power_target = speech_power*np.power(10,-snr_dB/10)
-        k = noise_power_target / noise_power
-        noise = noise * np.sqrt(k)
-
-        # Normalize by max of speech, noise, speech+noise
-        norm = np.max(abs(np.concatenate([speech, noise, speech+noise])))
-        mixture = (speech+noise) / norm
-        speech /= norm
-        noise /= norm
-
-        # Save .wav files
-        output_path = output_wav_dir + file_path
-        output_path = os.path.splitext(output_path)[0]
-
-        if not os.path.exists(os.path.dirname(output_path)):
-            os.makedirs(os.path.dirname(output_path))
-        
-        sf.write(output_path + '_s.wav', speech, fs)
-        sf.write(output_path + '_n.wav', noise, fs)
-        sf.write(output_path + '_x.wav', mixture, fs)
-
-        # TODO: save SNR, level_s, level_n in a figure
-    
+    all_snr_dB = [snrs[snrs_index[i]] for i in range(len(file_paths))]
     # TODO: save SNR, level_s, level_n in 1 big csv
     write_dataset(all_snr_dB, output_wav_dir, dataset_type, 'snr_db')
     # TODO: save histogram of SNR
+    # Select noise_type            
+    all_noise_type = [noise_types[noise_index[i]] for i in range(len(file_paths))]
+    
+    # Fuse lists
+    args = [[file_path, noise_type, snr_dB]
+                for file_path, noise_type, snr_dB in zip(file_paths, all_noise_type, all_snr_dB)]
+
+    t1 = time.perf_counter()
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=None) as executor:
+        executor.map(process_save_utt, args)
+    
+    # # Test script on 1 sublist
+    # process_save_utt(args[0])
+
+    t2 = time.perf_counter()
+    print(f'Finished in {t2 - t1} seconds')
+       
 
     #open_file(output_pickle_dir)
 

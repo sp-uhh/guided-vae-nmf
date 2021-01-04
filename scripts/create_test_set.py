@@ -18,7 +18,7 @@ noise_dataset_name = 'qutnoise_databases'
 if speech_dataset_name == 'CSR-1-WSJ-0':
     from python.dataset.csr1_wjs0_dataset import speech_list, write_dataset
 if noise_dataset_name == 'qutnoise_databases':
-    from python.dataset.qut_database import noise_list, preprocess_noise, noise_segment
+    from python.dataset.qut_database import noise_list, preprocess_noise, noise_segment, noise_list_preprocessed
 
 dataset_type = 'test'
 
@@ -133,18 +133,19 @@ def main():
     #TODO: read noises from processed, not from raw
     noise_paths = noise_list(input_noise_dir=input_noise_dir,
                              dataset_type=dataset_type)
+
+    preprocessed_noise_paths = noise_list_preprocessed(preprocessed_noise_dir=output_noise_dir,
+                            dataset_type=dataset_type)
     global noise_audios # in order to be read by process_save_utt
-    noise_audios = {} 
+    noise_audios = {}
 
     # Load the noise files
-    for noise_type, noise_path in noise_paths.items():
-        if dataset_type == 'test':
-            output_noise_path = output_noise_dir + 'si_et_05' + '/' + noise_type + '.wav'
+    for noise_type, preprocessed_noise_path in preprocessed_noise_paths.items():
         
         #if noise already preprocessed, read files directly
-        if os.path.exists(output_noise_path):
+        if os.path.exists(preprocessed_noise_path):
             
-            noise_audio, fs_noise = sf.read(output_noise_path)
+            noise_audio, fs_noise = sf.read(preprocessed_noise_path)
             
             if fs != fs_noise:
                 raise ValueError('Unexpected sampling rate')

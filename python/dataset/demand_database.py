@@ -9,7 +9,7 @@ from glob import glob
 import numpy as np
 import os
 import re
-import pickle
+from pathlib import Path
 import collections
 from librosa.core import resample # do not use it because slow, use pysox instead
 from python.utils import get_key
@@ -83,6 +83,36 @@ def preprocess_noise(noise_audio, fs_noise, fs):
         noise_audio_resamp = resample(noise_audio, fs_noise, fs)
 
     return noise_audio_resamp
+
+def noise_list_preprocessed(preprocessed_noise_dir, dataset_type='test'):
+    """[summary]
+
+    Args:
+        noise_dir ([type]): [description]
+        dataset_type
+    Return:
+        subset_noise_paths
+    """
+    data_dir = preprocessed_noise_dir
+
+    ### Training data
+    if dataset_type == 'train':
+        data_dir += 'si_tr_s/'
+
+    ### Validation data
+    if dataset_type == 'validation':
+        data_dir += 'si_dt_05/'
+
+    ### Test data
+    if dataset_type == 'test':
+        print('Not implemented')
+
+    # List of files
+    noise_paths = glob(data_dir + '**/*.wav',recursive=True)
+
+    # Store as a dict
+    noise_paths = {Path(i).stem:i for i in noise_paths}
+    return noise_paths
 
 def noise_segment(noise_audios, noise_type, speech):
     """[summary]

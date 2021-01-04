@@ -8,7 +8,7 @@ from tqdm import tqdm
 import h5py as h5
 
 from python.dataset.csr1_wjs0_dataset import speech_list, write_dataset
-from python.dataset.demand_database import noise_list, preprocess_noise, noise_segment
+from python.dataset.demand_database import noise_list, preprocess_noise, noise_segment, noise_list_preprocessed
 from python.processing.stft import stft
 from python.processing.target import clean_speech_IBM, clean_speech_VAD, ideal_wiener_mask
 from python.utils import open_file
@@ -18,8 +18,8 @@ from python.utils import open_file
 ## Dataset
 dataset_types = ['train', 'validation']
 
-# dataset_size = 'subset'
-dataset_size = 'complete'
+dataset_size = 'subset'
+# dataset_size = 'complete'
 
 # output_data_dir = 'h5'
 output_data_dir = 'export'
@@ -169,23 +169,18 @@ def main():
             snrs = [-5, -2.5, 0, 2.5, 5.0]
             snrs_index = np.random.randint(len(snrs), size=len(file_paths))
             
-            # Create noise audios
-            noise_paths = noise_list(input_noise_dir=input_noise_dir,
+            # Create noise_audios from processed noise files
+            preprocessed_noise_paths = noise_list_preprocessed(preprocessed_noise_dir=output_noise_dir,
                                     dataset_type=dataset_type)
             noise_audios = {}
 
             # Load the noise files
-            for noise_type, samples in noise_paths.items():
-
-                if dataset_type == 'train':
-                    output_noise_path = output_noise_dir + 'si_tr_s' + '/' + noise_type + '.wav'
-                if dataset_type == 'validation':
-                    output_noise_path = output_noise_dir + 'si_dt_05' + '/' + noise_type + '.wav'
+            for noise_type, preprocessed_noise_path in preprocessed_noise_paths.items():
 
                 #if noise already preprocessed, read files directly
-                if os.path.exists(output_noise_path):
+                if os.path.exists(preprocessed_noise_path):
                     
-                    noise_audio, fs_noise = sf.read(output_noise_path)
+                    noise_audio, fs_noise = sf.read(preprocessed_noise_path)
                     
                     if fs != fs_noise:
                         raise ValueError('Unexpected sampling rate. Did you preprocess the 16kHz version of the DEMAND database?')

@@ -129,11 +129,7 @@ def main():
     snrs = [-5.0, 0.0, 5.0]
     snrs_index = np.random.randint(len(snrs), size=len(file_paths))
 
-    # Create noise audios
-    #TODO: read noises from processed, not from raw
-    noise_paths = noise_list(input_noise_dir=input_noise_dir,
-                             dataset_type=dataset_type)
-
+    # Create noise_audios from processed noise files
     preprocessed_noise_paths = noise_list_preprocessed(preprocessed_noise_dir=output_noise_dir,
                             dataset_type=dataset_type)
     global noise_audios # in order to be read by process_save_utt

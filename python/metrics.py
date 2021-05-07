@@ -106,3 +106,25 @@ def compute_stats(metrics_keys, all_metrics, all_snr_db, model_data_dir, confide
         # # Save stats (si_sdr, si_sar, etc. )
         # with open(model_data_dir + 'stats_{:g}.json'.format(snr_db), 'w') as f:
         #     json.dump(stats, f)
+
+def compute_stats_noisnr(metrics_keys, all_metrics, model_data_dir, confidence):
+
+    # Dictionary with all metrics
+    metrics = {}
+    for id, key in enumerate(metrics_keys):
+        metrics[key] = [j[id] for j in all_metrics]
+
+    # Confidence interval
+    stats = {}
+
+    # Print the names of the columns. 
+    print ("{:<10} {:<10} {:<10}".format('METRIC', 'AVERAGE', 'CONF. INT.')) 
+    for key, metric in metrics.items():
+        m, h = mean_confidence_interval(metric, confidence=confidence)
+        stats[key] = {'avg': m, '+/-': h}
+        print ("{:<10} {:<10} {:<10}".format(key, m, h))
+    print('\n')
+
+    # Save stats (si_sdr, si_sar, etc. )
+    with open(model_data_dir + 'polqa_stats.json', 'w') as f:
+        json.dump(stats, f)

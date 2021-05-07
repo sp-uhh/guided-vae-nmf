@@ -13,10 +13,10 @@ import time
 
 from python.processing.stft import stft, istft
 
-from python.metrics import energy_ratios, compute_stats
+from python.metrics import energy_ratios, compute_stats, compute_stats_noisnr
 from pystoi import stoi
 from pesq import pesq
-#from uhh_sp.evaluation import polqa
+from uhh_sp.evaluation import polqa
 
 from python.visualization import display_multiple_signals
 
@@ -28,8 +28,8 @@ if dataset_name == 'CSR-1-WSJ-0':
 # Settings
 dataset_type = 'test'
 
-dataset_size = 'subset'
-# dataset_size = 'complete'
+# dataset_size = 'subset'
+dataset_size = 'complete'
 
 # Parameters
 ## STFT
@@ -59,7 +59,7 @@ model_name = 'M1_hdim_128_128_zdim_032_end_epoch_200/M1_epoch_124_vloss_475.95'
 # Data directories
 input_speech_dir = os.path.join('data',dataset_size,'raw/')
 processed_data_dir = os.path.join('data',dataset_size,'processed/')
-model_data_dir = os.path.join('data', dataset_size, 'models', model_name + '/') # Directory where estimated data is stored
+model_data_dir = os.path.join('data', dataset_size, 'models_wsj0', model_name + '/') # Directory where estimated data is stored
 
 
 def compute_metrics_utt(args):
@@ -181,5 +181,89 @@ def main():
                   model_data_dir=model_data_dir,
                   confidence=confidence)
 
+def main_polqa():
+
+    # Create file list
+    file_paths = speech_list(input_speech_dir=input_speech_dir,
+                                dataset_type=dataset_type)
+
+    # Fuse both list
+    v_reference_paths = [processed_data_dir + os.path.splitext(file_path)[0] + '_s.wav'
+                            for file_path in file_paths]
+
+    v_processed_paths = [model_data_dir + os.path.splitext(file_path)[0] + '_s_est.wav'
+                            for file_path in file_paths]
+
+    #  POLQA on short audio files
+    extended_v_reference_paths = []
+    extended_v_processed_paths = []
+
+    for i, (file_path, v_reference_path, v_processed_path) in enumerate(zip(file_paths, v_reference_paths, v_processed_paths)):
+        # Read files
+        s_t, fs_s = sf.read(v_reference_path) # clean speech
+        s_hat_t, fs_s_hat = sf.read(v_processed_path) # est. speech
+
+        # if smaller, then convert to numpy array and pad, and remove from list
+        if len(s_t) < 3 * fs:
+            s_t = np.pad(s_t, (0, 3 * fs - len(s_t)))
+            s_hat_t = np.pad(s_hat_t, (0, 3 * fs - len(s_hat_t)))
+            
+            # Remove from path list
+            v_reference_paths.remove(v_reference_path)
+            v_processed_paths.remove(v_processed_path)
+
+            # Save as new files
+            extended_v_reference_path = processed_data_dir + os.path.splitext(file_path)[0] + '_s_3sec.wav'
+            extended_v_processed_path = model_data_dir + os.path.splitext(file_path)[0] + '_s_est_3sec.wav'
+
+            sf.write(extended_v_reference_path, s_t, fs)
+            sf.write(extended_v_processed_path, s_hat_t, fs)
+
+            # Append to extended path list
+            extended_v_reference_paths.append(extended_v_reference_path)
+            extended_v_processed_paths.append(extended_v_processed_path)
+
+    # Remove 3rd and last indices from extended list
+    del extended_v_reference_paths[3]
+    del extended_v_reference_paths[-1]
+
+    del extended_v_processed_paths[3]
+    del extended_v_processed_paths[-1]
+
+    t1 = time.perf_counter()
+    
+    # path_all_polqa = polqa(v_reference=v_reference_paths[:1], v_processed=v_processed_paths[:1])
+    # extended_all_polqa = polqa(v_reference=extended_v_reference_paths[3:4], v_processed=extended_v_processed_paths[3:4])
+    path_all_polqa = polqa(v_reference=v_reference_paths, v_processed=v_processed_paths)
+    # extended_all_polqa = polqa(v_reference=extended_v_reference_paths, v_processed=extended_v_processed_paths)
+
+    t2 = time.perf_counter()
+    print(f'Finished in {t2 - t1} seconds')
+
+    # Transform generator to list
+    path_all_polqa = list(path_all_polqa)
+    # extended_all_polqa = list(extended_all_polqa)
+
+    with open(model_data_dir + 'path_all_polqa.txt', 'w') as f:
+        for item in path_all_polqa:
+            f.write("%s\n" % item)
+
+    # with open(model_data_dir + 'extended_all_polqa.txt', 'w') as f:
+    #     for item in extended_all_polqa:
+    #         f.write("%s\n" % item)
+
+    # Merge lists
+    # all_polqa = path_all_polqa + extended_all_polqa
+    all_polqa = path_all_polqa
+    # all_polqa = extended_all_polqa
+    metrics_keys = ['POLQA']
+
+    # Compute & save stats
+    compute_stats_noisnr(metrics_keys=metrics_keys,
+                  all_metrics=all_polqa,
+                  model_data_dir=model_data_dir,
+                  confidence=confidence)
+
 if __name__ == '__main__':
     main()
+    # main_polqa()

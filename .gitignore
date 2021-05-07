@@ -16,6 +16,8 @@ setup.py
 # data
 data/complete/
 data/subset/models/
+data/subset/models_wsj0/
+data/subset/models_ntcd/
 
 # Unused files
 *math_func.py

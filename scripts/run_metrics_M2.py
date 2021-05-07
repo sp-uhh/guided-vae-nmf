@@ -10,15 +10,17 @@ import json
 import matplotlib.pyplot as plt
 import concurrent.futures # for multiprocessing
 import time
+import tempfile
 
 from python.processing.stft import stft, istft
 from python.processing.target import clean_speech_IBM, clean_speech_VAD
 
-from python.metrics import energy_ratios, compute_stats
+from python.metrics import energy_ratios, compute_stats, compute_stats_noisnr
 from pystoi import stoi
 from pesq import pesq
-#from uhh_sp.evaluation import polqa
-from sklearn.metrics import f1_score
+from uhh_sp.evaluation import polqa
+# from sklearn.metrics import f1_score
+from python.models.utils import f1_loss
 
 from python.visualization import display_multiple_signals
 
@@ -47,8 +49,14 @@ dtype = 'complex64'
 eps = 1e-8
 
 ## Ideal binary mask
-quantile_fraction = 0.999
-quantile_weight = 0.999
+if labels == 'labels':
+    quantile_fraction = 0.98
+    quantile_weight = 0.999
+
+if labels == 'vad_labels':
+    ## Voice activitiy detection
+    quantile_fraction = 0.999
+    quantile_weight = 0.999
 
 ## Plot spectrograms
 vmin = -40 # in dB
@@ -120,7 +128,9 @@ def compute_metrics_utt(args):
     ## F1 score
     # ideal binary mask
     y_hat_hard = torch.load(model_data_dir + os.path.splitext(file_path)[0] + '_ibm_hard_est.pt', map_location=lambda storage, location: storage) # shape = (frames, freq_bins)
-    y_hat_hard = (y_hat_hard > 0.5).T # Transpose to match target y, shape = (freq_bins, frames)
+    # y_hat_hard = torch.load(model_data_dir + os.path.splitext(file_path)[0] + '_ibm_soft_est.pt', map_location=lambda storage, location: storage) # shape = (frames, freq_bins)
+    # y_hat_hard = (y_hat_hard > 0.5).T # Transpose to match target y, shape = (freq_bins, frames)
+    y_hat_hard = y_hat_hard.T # Transpose to match target y, shape = (freq_bins, frames)
 
     # TF representation
     s_tf = stft(s_t,
@@ -139,7 +149,11 @@ def compute_metrics_utt(args):
                         quantile_fraction=quantile_fraction,
                         quantile_weight=quantile_weight)
 
-    f1score_s_hat = f1_score(y.flatten(), y_hat_hard.flatten(), average="binary")
+    # Convert y to Tensor for f1-score
+    y_hat_hard = y_hat_hard.int()
+    y = torch.LongTensor(y)
+
+    accuracy, precision, recall, f1score_s_hat = f1_loss(y.flatten(), y_hat_hard.flatten(), epsilon=1e-12)
 
     # plots of target / estimation
     # TF representation
@@ -162,8 +176,8 @@ def compute_metrics_utt(args):
     ## estimated signal (wav + spectro + mask)
     signal_list = [
         [x_t, x_tf, None], # mixture: (waveform, tf_signal, no mask)
-        [s_t, s_tf, y], # clean speech
-        [s_hat_t, s_hat_tf, y_hat_hard]
+        [s_t, s_tf, y.numpy()], # clean speech
+        [s_hat_t, s_hat_tf, y_hat_hard.numpy()]
     ]
     fig = display_multiple_signals(signal_list,
                         fs=fs, vmin=vmin, vmax=vmax,
@@ -172,12 +186,16 @@ def compute_metrics_utt(args):
     
     # put all metrics in the title of the figure
     title = "Input SNR = {:.1f} dB \n" \
-        "SI-SDR = {:.1f} dB, " \
-        "SI-SIR = {:.1f} dB, " \
-        "SI-SAR = {:.1f} dB \n" \
-        "STOI = {:.2f}, " \
+        "SI-SDR = {:.1f} dB,  " \
+        "SI-SIR = {:.1f} dB,  " \
+        "SI-SAR = {:.1f} dB\n" \
+        "STOI = {:.2f},  " \
         "PESQ = {:.2f} \n" \
-        "F1-score = {:.3f} \n".format(snr_db, si_sdr, si_sir, si_sar, stoi_s_hat, pesq_s_hat, f1score_s_hat)
+        "Accuracy = {:.3f},  "\
+        "Precision = {:.3f},  "\
+        "Recall = {:.3f},  "\
+        "F1-score = {:.3f}\n".format(snr_db, si_sdr, si_sir, si_sar, stoi_s_hat, pesq_s_hat,\
+            accuracy, precision, recall, f1score_s_hat)
 
     fig.suptitle(title, fontsize=40)
 
@@ -187,7 +205,8 @@ def compute_metrics_utt(args):
     # Clear figure
     plt.close()
 
-    metrics = [si_sdr, si_sir, si_sar, stoi_s_hat, pesq_s_hat, f1score_s_hat]
+    metrics = [si_sdr, si_sir, si_sar, stoi_s_hat, pesq_s_hat,\
+        accuracy, precision, recall, f1score_s_hat]
     return metrics
 
 def main():
@@ -207,12 +226,18 @@ def main():
     with concurrent.futures.ProcessPoolExecutor(max_workers=None) as executor:
         all_metrics = executor.map(compute_metrics_utt, args)
     
+    # all_metrics = []
+    # for arg in args:
+    #     metrics = compute_metrics_utt(arg)
+    #     all_metrics.append(metrics)
+
     t2 = time.perf_counter()
     print(f'Finished in {t2 - t1} seconds')
 
     # Transform generator to list
     all_metrics = list(all_metrics)
-    metrics_keys = ['SI-SDR', 'SI-SIR', 'SI-SAR', 'STOI', 'PESQ', 'F1-SCORE']
+    metrics_keys = ['SI-SDR', 'SI-SIR', 'SI-SAR', 'STOI', 'PESQ',\
+        'ACCURACY', 'PRECISION', 'RECALL', 'F1-SCORE']
 
     # Compute & save stats
     compute_stats(metrics_keys=metrics_keys,
@@ -221,5 +246,89 @@ def main():
                   model_data_dir=model_data_dir,
                   confidence=confidence)
 
+def main_polqa():
+
+    # Create file list
+    file_paths = speech_list(input_speech_dir=input_speech_dir,
+                                dataset_type=dataset_type)
+
+    # Fuse both list
+    v_reference_paths = [processed_data_dir + os.path.splitext(file_path)[0] + '_s.wav'
+                            for file_path in file_paths]
+
+    v_processed_paths = [model_data_dir + os.path.splitext(file_path)[0] + '_s_est.wav'
+                            for file_path in file_paths]
+
+    #  POLQA on short audio files
+    extended_v_reference_paths = []
+    extended_v_processed_paths = []
+
+    for i, (file_path, v_reference_path, v_processed_path) in enumerate(zip(file_paths, v_reference_paths, v_processed_paths)):
+        # Read files
+        s_t, fs_s = sf.read(v_reference_path) # clean speech
+        s_hat_t, fs_s_hat = sf.read(v_processed_path) # est. speech
+
+        # if smaller, then convert to numpy array and pad, and remove from list
+        if len(s_t) < 3 * fs:
+            s_t = np.pad(s_t, (0, 3 * fs - len(s_t)))
+            s_hat_t = np.pad(s_hat_t, (0, 3 * fs - len(s_hat_t)))
+            
+            # Remove from path list
+            v_reference_paths.remove(v_reference_path)
+            v_processed_paths.remove(v_processed_path)
+
+            # Save as new files
+            extended_v_reference_path = processed_data_dir + os.path.splitext(file_path)[0] + '_s_3sec.wav'
+            extended_v_processed_path = model_data_dir + os.path.splitext(file_path)[0] + '_s_est_3sec.wav'
+
+            sf.write(extended_v_reference_path, s_t, fs)
+            sf.write(extended_v_processed_path, s_hat_t, fs)
+
+            # Append to extended path list
+            extended_v_reference_paths.append(extended_v_reference_path)
+            extended_v_processed_paths.append(extended_v_processed_path)
+
+    # Remove 3rd and last indices from extended list
+    del extended_v_reference_paths[3]
+    del extended_v_reference_paths[-1]
+
+    del extended_v_processed_paths[3]
+    del extended_v_processed_paths[-1]
+
+    t1 = time.perf_counter()
+    
+    # path_all_polqa = polqa(v_reference=v_reference_paths[:1], v_processed=v_processed_paths[:1])
+    # extended_all_polqa = polqa(v_reference=extended_v_reference_paths[3:4], v_processed=extended_v_processed_paths[3:4])
+    path_all_polqa = polqa(v_reference=v_reference_paths, v_processed=v_processed_paths)
+    # extended_all_polqa = polqa(v_reference=extended_v_reference_paths, v_processed=extended_v_processed_paths)
+
+    t2 = time.perf_counter()
+    print(f'Finished in {t2 - t1} seconds')
+
+    # Transform generator to list
+    path_all_polqa = list(path_all_polqa)
+    # extended_all_polqa = list(extended_all_polqa)
+
+    with open(model_data_dir + 'path_all_polqa.txt', 'w') as f:
+        for item in path_all_polqa:
+            f.write("%s\n" % item)
+
+    # with open(model_data_dir + 'extended_all_polqa.txt', 'w') as f:
+    #     for item in extended_all_polqa:
+    #         f.write("%s\n" % item)
+
+    # Merge lists
+    # all_polqa = path_all_polqa + extended_all_polqa
+    all_polqa = path_all_polqa
+    # all_polqa = extended_all_polqa
+    metrics_keys = ['POLQA']
+
+    # Compute & save stats
+    compute_stats_noisnr(metrics_keys=metrics_keys,
+                  all_metrics=all_polqa,
+                  model_data_dir=model_data_dir,
+                  confidence=confidence)
+                  
 if __name__ == '__main__':
     main()
+    # main_polqa()

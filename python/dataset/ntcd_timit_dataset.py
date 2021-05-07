@@ -44,8 +44,6 @@ def speech_list(input_speech_dir,
     if dataset_type == 'test':
         data_dir += 'test/'
 
-    '/data/subset/raw/'
-
     # List of files
     file_paths = sorted(glob(data_dir + '**/*.mat',recursive=True))
 

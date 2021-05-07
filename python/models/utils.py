@@ -135,9 +135,11 @@ def f1_loss(y_hat_hard:torch.Tensor, y:torch.Tensor, epsilon=1e-8) -> torch.Tens
     fp = ((1 - y_true) * y_pred).sum().to(torch.float32)
     fn = (y_true * (1 - y_pred)).sum().to(torch.float32)
     
+    accuracy = (tp + tn) / (tp + tn + fp + fn + epsilon)
     precision = tp / (tp + fp + epsilon)
     recall = tp / (tp + fn + epsilon)
     
     f1 = 2* (precision*recall) / (precision + recall + epsilon)
     #f1.requires_grad = is_training
-    return f1, tp, tn, fp, fn
+    # return f1, tp, tn, fp, fn
+    return accuracy, precision, recall, f1

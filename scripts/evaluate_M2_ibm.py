@@ -61,10 +61,6 @@ if classif_type == 'dnn':
     classif_name = 'classif_normdataset_hdim_128_128_end_epoch_100/Classifier_epoch_073_vloss_56.43'
     h_dim_cl = [128, 128]
     std_norm = True
-
-    # classif_name = 'classif_hdim_128_128_end_epoch_100/Classifier_epoch_096_vloss_71.65'
-    # h_dim_cl = [128, 128]
-    # std_norm = False
     
 if classif_type == 'oracle':
     classif_name = 'oracle_classif'
@@ -174,13 +170,6 @@ def process_utt(mcem, model, classifier, mean, std, file_path, device):
     torch.save(y_hat_soft, output_path + ' _ibm_soft_est.pt')
     torch.save(y_hat_hard, output_path + '_ibm_hard_est.pt')
     
-    # end_file = time.time()
-    # elapsed.append(end_file - start_file)
-    # etc = (len(file_paths)-i-1)*np.mean(elapsed)
-
-    # print("                   average time per file: {:4.1f} s      ETC: {:d} h, {:2d} min, {:2d} s"\
-    #     "".format(np.mean(elapsed), int(etc/(60*60)), int((etc/60) % 60), int(etc % 60)), end='\r')
-
 def process_sublist(device, sublist, mcem, model, classifier):
 
     if cuda: model = model.to(device)
@@ -253,14 +242,6 @@ def main():
     # # Test script on 1 sublist
     # process_sublist(*b[0])
 
-    # elapsed = []
-    # for i, file_path in enumerate(file_paths):
-    #     start_file = time.time()
-    #     print('- File {}/{}'.format(i+1,len(file_paths)), end='\r')
-
-    # end = time.time()
-    # print('- File {}/{}   '.format(len(file_paths), len(file_paths)))
-    # print('                     total time: {:6.1f} s'.format(end-start))
     t2 = time.perf_counter()
     print(f'Finished in {t2 - t1} seconds')
 

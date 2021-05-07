@@ -165,14 +165,6 @@ def process_utt(mcem, model, file_path, device):
     sf.write(output_path + '_s_est.wav', s_hat, fs)
     sf.write(output_path + '_n_est.wav', n_hat, fs)
 
-    # end_file = time.time()
-    # elapsed.append(end_file - start_file)
-    # etc = (len(file_paths)-i-1)*np.mean(elapsed)
-
-    # end = time.time()
-    # print('- File {}/{}   '.format(len(file_paths), len(file_paths)))
-    # print('                     total time: {:6.1f} s'.format(end-start))
-
 def process_sublist(device, sublist, mcem, model):
 
     if cuda: model = model.to(device)

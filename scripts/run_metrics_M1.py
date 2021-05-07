@@ -51,8 +51,6 @@ fontsize = 30
 confidence = 0.95 # confidence interval
 
 # Model
-#model_name = 'dummy_M2_10_epoch_010_vloss_108.79'
-# model_name = 'dummy_M2_alpha_5.0_epoch_100_vloss_466.72'
 # model_name = 'M1_hdim_128_128_zdim_032_end_epoch_200/M1_epoch_085_vloss_479.69'
 model_name = 'M1_hdim_128_128_zdim_032_end_epoch_200/M1_epoch_124_vloss_475.95'
 
@@ -74,12 +72,8 @@ def compute_metrics_utt(args):
     s_hat_t, fs_s_hat = sf.read(model_data_dir + os.path.splitext(file_path)[0] + '_s_est.wav') # est. speech
 
     # compute metrics
-    #TODO: potential pb with SI-SIR --> compute segmental SI-SDR
     ## SI-SDR, SI-SAR, SI-SNR
     si_sdr, si_sir, si_sar = energy_ratios(s_hat=s_hat_t, s=s_t, n=n_t)
-    # all_si_sdr.append(si_sdr)
-    # all_si_sir.append(si_sir)
-    # all_si_sar.append(si_sar)
 
     ## STOI (or ESTOI?)
     stoi_s_hat = stoi(s_t, s_hat_t, fs, extended=True)

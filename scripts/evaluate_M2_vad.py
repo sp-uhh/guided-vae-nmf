@@ -165,13 +165,6 @@ def process_utt(mcem, model, classifier, mean, std, file_path, device):
     torch.save(y_hat_soft, output_path + ' _ibm_soft_est.pt')
     torch.save(y_hat_hard, output_path + '_ibm_hard_est.pt')
     
-    # end_file = time.time()
-    # elapsed.append(end_file - start_file)
-    # etc = (len(file_paths)-i-1)*np.mean(elapsed)
-
-    # print("                   average time per file: {:4.1f} s      ETC: {:d} h, {:2d} min, {:2d} s"\
-    #     "".format(np.mean(elapsed), int(etc/(60*60)), int((etc/60) % 60), int(etc % 60)), end='\r')
-
 def process_sublist(device, sublist, mcem, model, classifier):
     
     if cuda: model = model.to(device)

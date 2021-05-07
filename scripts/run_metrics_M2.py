@@ -19,7 +19,6 @@ from python.metrics import energy_ratios, compute_stats, compute_stats_noisnr
 from pystoi import stoi
 from pesq import pesq
 from uhh_sp.evaluation import polqa
-# from sklearn.metrics import f1_score
 from python.models.utils import f1_loss
 
 from python.visualization import display_multiple_signals
@@ -111,7 +110,6 @@ def compute_metrics_utt(args):
     s_hat_t, fs_s_hat = sf.read(model_data_dir + os.path.splitext(file_path)[0] + '_s_est.wav') # est. speech
 
     # compute metrics
-    #TODO: potential pb with SI-SIR --> compute segmental SI-SDR
     ## SI-SDR, SI-SAR, SI-SNR
     si_sdr, si_sir, si_sar = energy_ratios(s_hat=s_hat_t, s=s_t, n=n_t)
 
@@ -129,7 +127,6 @@ def compute_metrics_utt(args):
     # ideal binary mask
     y_hat_hard = torch.load(model_data_dir + os.path.splitext(file_path)[0] + '_ibm_hard_est.pt', map_location=lambda storage, location: storage) # shape = (frames, freq_bins)
     # y_hat_hard = torch.load(model_data_dir + os.path.splitext(file_path)[0] + '_ibm_soft_est.pt', map_location=lambda storage, location: storage) # shape = (frames, freq_bins)
-    # y_hat_hard = (y_hat_hard > 0.5).T # Transpose to match target y, shape = (freq_bins, frames)
     y_hat_hard = y_hat_hard.T # Transpose to match target y, shape = (freq_bins, frames)
 
     # TF representation
